@@ -45,10 +45,11 @@
 		</dependency>
 
 		<dependency>
-			<groupId>org.jboss.windup.decompiler.fernflower</groupId>
-			<artifactId>fernflower</artifactId>
-			<version>2.5.0.Final</version>
+			<groupId>org.jboss.windup.decompiler</groupId>
+			<artifactId>decompiler-fernflower</artifactId>
+			<version>4.3.1.Final</version>
 		</dependency>
+
 
 		<dependency>
 			<groupId>org.apache.maven</groupId>

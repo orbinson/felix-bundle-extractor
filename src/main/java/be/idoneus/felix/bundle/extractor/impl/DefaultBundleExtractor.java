@@ -10,10 +10,6 @@ import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 import org.jetbrains.java.decompiler.main.decompiler.ConsoleDecompiler;
 import org.jetbrains.java.decompiler.main.extern.IFernflowerLogger;
 import org.jetbrains.java.decompiler.main.extern.IFernflowerPreferences;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.stereotype.Service;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -27,25 +23,26 @@ import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 import java.util.stream.Stream;
 
-@Service
 public class DefaultBundleExtractor implements BundleExtractor {
 
     private Log log = LogFactory.getLog(DefaultBundleExtractor.class);
 
-    @Value("${bundles.dir.output}")
-    private String bundlesDirOutput;
+    private String bundlesOutputDir;
 
     private int decompiledCount = 0;
     private int downloadCount = 0;
     private int unprocessedCount = 0;
 
-    public int getDecompiledCount() {
+    public DefaultBundleExtractor(String bundlesOutputDir) {
+        this.bundlesOutputDir = bundlesOutputDir;
+	}
+
+	public int getDecompiledCount() {
         return decompiledCount;
     }
 
@@ -58,8 +55,7 @@ public class DefaultBundleExtractor implements BundleExtractor {
     }
 
     @Override
-    @Async
-    public CompletableFuture<Path> extract(Path path) {
+    public Path extract(Path path) {
         try {
             Path versionPath = getVersionDirectory(path);
             if (versionPath != null) {
@@ -67,17 +63,17 @@ public class DefaultBundleExtractor implements BundleExtractor {
                 if (bundlePath.toFile().exists()) {
                     extractJarFile(path, bundlePath);
                 } else {
-                    log.info("Could not find bundle jar, deleting bundle " + path.toString());
+                    log.info("Could not find bundle jar" + path.toString());
                     unprocessedCount++;
                 }
             } else {
-                log.info("Could not find version directory, deleting bundle " + path.toString());
+                log.info("Could not find version directory" + path.toString());
                 unprocessedCount++;
             }
         } catch (Exception e) {
             log.error("Could not extract bundle", e);
         }
-        return CompletableFuture.completedFuture(path);
+        return path;
     }
 
     private void extractJarFile(Path path, Path bundlePath) throws XmlPullParserException {
@@ -121,6 +117,7 @@ public class DefaultBundleExtractor implements BundleExtractor {
         String version = getManifestAttribute(jarFile, "Implementation-Version");
         Files.createDirectory(path.resolve(artifactId));
         Files.copy(bundlePath, path.resolve(artifactId).resolve(artifactId + "-" + version + ".jar"));
+        createSourceJar(path.resolve(artifactId), artifactId, version);
         moveToOutputFolder(path, groupId, artifactId, version);
         FileUtils.deleteDirectory(path.resolve(artifactId).toFile());
         log.info("Extracted and renamed with manifest.mf for " + groupId + ":" + artifactId);
@@ -182,7 +179,7 @@ public class DefaultBundleExtractor implements BundleExtractor {
     }
 
     private void moveToOutputFolder(Path path, String groupId, String artifactId, String version) throws IOException {
-        Path outputPath = Paths.get(bundlesDirOutput);
+        Path outputPath = Paths.get(bundlesOutputDir);
         Path artifact = path.resolve(artifactId).resolve(artifactId + "-" + version + ".jar");
         Path sources = path.resolve(artifactId).resolve(artifactId + "-" + version + "-sources.jar");
         Files.move(artifact, outputPath.resolve("artifacts").resolve(artifactId + "-" + version + ".jar"),

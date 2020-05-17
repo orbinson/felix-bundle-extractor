@@ -1,11 +1,10 @@
 package be.idoneus.felix.bundle.extractor;
 
 import java.nio.file.Path;
-import java.util.concurrent.CompletableFuture;
 
 @FunctionalInterface
 public interface BundleExtractor {
-    CompletableFuture<Path> extract(Path path);
+    Path extract(Path path);
 
     default int getDownloadCount() {
         return 0;

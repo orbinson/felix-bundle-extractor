@@ -22,13 +22,11 @@ public class BundleExtractorService {
     private Log log = LogFactory.getLog(BundleExtractorService.class);
 
     private final BundleExtractor extractor;
-    private final String bundlesInputDir;
-    private final String bundlesOutputDir;
+    private final BundleExtractorConfig config;
 
-    public BundleExtractorService(String bundlesInputDir, String bundlesOutputDir) {
-        this.bundlesInputDir = bundlesInputDir;
-        this.bundlesOutputDir = bundlesOutputDir;
-        this.extractor = new DefaultBundleExtractor(bundlesOutputDir);
+    public BundleExtractorService(BundleExtractorConfig config) {
+        this.config = config;
+        this.extractor = new DefaultBundleExtractor(config);
     }
 
     void run() {
@@ -37,10 +35,10 @@ public class BundleExtractorService {
     }
 
     private void extractBundles() {
-        ExecutorService executorService = Executors.newFixedThreadPool(10);
+        ExecutorService executorService = Executors.newFixedThreadPool(config.getThreadCount());
 
         List<CompletableFuture<Path>> futures = new ArrayList<>();
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(Paths.get(bundlesInputDir))) {
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(Paths.get(config.getBundleInputDir()))) {
             // loop over all bundle jars
             for (Path path : stream) {
                 CompletableFuture<Path> cf = CompletableFuture.supplyAsync(() -> extractor.extract(path),
@@ -69,9 +67,9 @@ public class BundleExtractorService {
     }
 
     private void createOutputDirectory() {
-        createDirectory(Paths.get(bundlesOutputDir));
-        createDirectory(Paths.get(bundlesOutputDir).resolve("artifacts"));
-        createDirectory(Paths.get(bundlesOutputDir).resolve("sources"));
+        createDirectory(Paths.get(config.getBundleOutputDir()));
+        createDirectory(Paths.get(config.getBundleOutputDir()).resolve("artifacts"));
+        createDirectory(Paths.get(config.getBundleOutputDir()).resolve("sources"));
     }
 
     private void createDirectory(Path directory) {

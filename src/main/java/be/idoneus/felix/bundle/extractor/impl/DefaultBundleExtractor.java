@@ -1,6 +1,8 @@
 package be.idoneus.felix.bundle.extractor.impl;
 
 import be.idoneus.felix.bundle.extractor.BundleExtractor;
+import be.idoneus.felix.bundle.extractor.BundleExtractorConfig;
+
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -32,17 +34,17 @@ public class DefaultBundleExtractor implements BundleExtractor {
 
     private Log log = LogFactory.getLog(DefaultBundleExtractor.class);
 
-    private String bundlesOutputDir;
-
     private int decompiledCount = 0;
     private int downloadCount = 0;
     private int unprocessedCount = 0;
 
-    public DefaultBundleExtractor(String bundlesOutputDir) {
-        this.bundlesOutputDir = bundlesOutputDir;
-	}
+    private final BundleExtractorConfig config;
 
-	public int getDecompiledCount() {
+    public DefaultBundleExtractor(BundleExtractorConfig config) {
+        this.config = config;
+    }
+
+    public int getDecompiledCount() {
         return decompiledCount;
     }
 
@@ -179,7 +181,7 @@ public class DefaultBundleExtractor implements BundleExtractor {
     }
 
     private void moveToOutputFolder(Path path, String groupId, String artifactId, String version) throws IOException {
-        Path outputPath = Paths.get(bundlesOutputDir);
+        Path outputPath = Paths.get(config.getBundleOutputDir());
         Path artifact = path.resolve(artifactId).resolve(artifactId + "-" + version + ".jar");
         Path sources = path.resolve(artifactId).resolve(artifactId + "-" + version + "-sources.jar");
         Files.move(artifact, outputPath.resolve("artifacts").resolve(artifactId + "-" + version + ".jar"),

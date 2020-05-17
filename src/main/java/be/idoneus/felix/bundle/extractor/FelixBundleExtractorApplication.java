@@ -21,17 +21,22 @@ public class FelixBundleExtractorApplication {
         output.setRequired(true);
         options.addOption(output);
 
+        Option threadCount = new Option("t", "threadCount", true, "thread count for the bundle extraction");
+        options.addOption(threadCount);
+
         CommandLineParser parser = new DefaultParser();
         HelpFormatter formatter = new HelpFormatter();
         CommandLine cmd;
 
         try {
             cmd = parser.parse(options, args);
-            String bundlesInputDir = cmd.getOptionValue("bundlesInputDir");
-            String bundlesOutputDir = cmd.getOptionValue("bundlesOutputDir");
+            
+            BundleExtractorConfig config = new BundleExtractorConfig();
+            config.setBundleInputDir(cmd.getOptionValue("bundlesInputDir"));
+            config.setBundleOutputDir(cmd.getOptionValue("bundlesOutputDir"));
+            config.setThreadCount(Integer.valueOf(cmd.getOptionValue("threadCount", "10")));
 
-            BundleExtractorService bundleExtractorService = new BundleExtractorService(bundlesInputDir,
-                    bundlesOutputDir);
+            BundleExtractorService bundleExtractorService = new BundleExtractorService(config);
             bundleExtractorService.run();
 
         } catch (ParseException e) {

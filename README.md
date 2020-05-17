@@ -4,11 +4,11 @@ Sorts and decompiles your Felix / OSGi bundles in to a searchable directory
 
 ## Usage
 
-- Find your felix folder that contains all the OSGi bundles (Apache Sling: sling/launchpad/felix, AEM: crx-quickstart/launchpad/felix)
-- Set bundles.dir.input to this location or copy over so that the folder can be read
-- Set a bundles.dir.output where you want your decompiled / sorted jars to be placed
-- Start the spring application
+* Find your felix folder that contains all the OSGi bundles (Apache Sling: sling/launchpad/felix, AEM: crx-quickstart/launchpad/felix)
+* Execute the java program with the following command line arguments:
+    * bundles.input.dir: Location of the input bundles or a copy of the directory.
+    * bundles.output.dir: Location where you want your decompiled / sorted jars to be placed
 
-## Included grep-in bsh script
+## Included grep-in bash script
 
-grep.in.jars: A bash script to allow quick searching in the sources folder. Usage: "bash grep-in-jars.sh ClassName"
+A bash script to allow quick searching in the sources folder. Usage: "bash grep-in-jars.sh ClassName"

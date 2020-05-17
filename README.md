@@ -9,7 +9,6 @@ Sorts and decompiles your Felix / OSGi bundles in to a searchable directory
 - Set a bundles.dir.output where you want your decompiled / sorted jars to be placed
 - Start the spring application
 
-### Optional settings
+## Included grep-in bsh script
 
-- separate.artifacts.and.sources: Will place the artifacts and sources in two separate folders
-- add.grep.in.jars: Adds a bash script to allow quick searching in the sources folder. Usage: "bash grep-in-jars.sh ClassName"
+grep.in.jars: A bash script to allow quick searching in the sources folder. Usage: "bash grep-in-jars.sh ClassName"

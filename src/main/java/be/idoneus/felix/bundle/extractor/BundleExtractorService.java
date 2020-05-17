@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,12 +29,6 @@ public class BundleExtractorService {
     @Value("${bundles.dir.output}")
     private String bundlesDirOutput;
 
-    @Value("${separate.artifacts.and.sources}")
-    private boolean separateArtifactsAndSources;
-
-    @Value("${include.grep.in.jars}")
-    private boolean includeGrepInJars;
-
     void run() {
         createOutputDirectory();
         extractBundles();
@@ -50,24 +43,16 @@ public class BundleExtractorService {
         } catch (IOException e) {
             log.error("Could not open directory", e);
         }
-        //wait for all the futures to be done
+        // wait for all the futures to be done
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-        log.info("Downloaded " + extractor.getDownloadCount() + ", decompiled " + extractor.getDecompiledCount() + " and unprocessed " + extractor.getUnprocessedCount() + " in total");
+        log.info("Downloaded " + extractor.getDownloadCount() + ", decompiled " + extractor.getDecompiledCount()
+                + " and unprocessed " + extractor.getUnprocessedCount() + " in total");
     }
 
     private void createOutputDirectory() {
         createDirectory(Paths.get(bundlesDirOutput));
-        if (separateArtifactsAndSources) {
-            createDirectory(Paths.get(bundlesDirOutput).resolve("artifacts"));
-            createDirectory(Paths.get(bundlesDirOutput).resolve("sources"));
-            if (includeGrepInJars) {
-                try {
-                    Files.copy(Paths.get(ClassLoader.getSystemResource("grep-in-jars.sh").toURI()), Paths.get(bundlesDirOutput).resolve("sources/grep-in-jars.sh"), StandardCopyOption.REPLACE_EXISTING);
-                } catch (IOException | URISyntaxException e) {
-                    log.error("Could not copy grep-in-jars.sh to output directory", e);
-                }
-            }
-        }
+        createDirectory(Paths.get(bundlesDirOutput).resolve("artifacts"));
+        createDirectory(Paths.get(bundlesDirOutput).resolve("sources"));
     }
 
     private void createDirectory(Path directory) {

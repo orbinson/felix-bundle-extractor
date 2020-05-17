@@ -41,9 +41,6 @@ public class DefaultBundleExtractor implements BundleExtractor {
     @Value("${bundles.dir.output}")
     private String bundlesDirOutput;
 
-    @Value("${separate.artifacts.and.sources}")
-    private boolean separateArtifactsAndSources;
-
     private int decompiledCount = 0;
     private int downloadCount = 0;
     private int unprocessedCount = 0;
@@ -62,7 +59,7 @@ public class DefaultBundleExtractor implements BundleExtractor {
 
     @Override
     @Async
-    public CompletableFuture extract(Path path) {
+    public CompletableFuture<Path> extract(Path path) {
         try {
             Path versionPath = getVersionDirectory(path);
             if (versionPath != null) {
@@ -109,7 +106,7 @@ public class DefaultBundleExtractor implements BundleExtractor {
     private void extractFromManifest(Path path, Path bundlePath, JarFile jarFile) throws IOException {
         String groupId = getManifestAttribute(jarFile, "Implementation-Vendor-Id");
         if (groupId.equals("")) {
-            //defaulting to com.adobe
+            // defaulting to com.adobe
             groupId = "com.adobe";
         }
         String artifactId = getManifestAttribute(jarFile, "Bundle-SymbolicName");
@@ -117,7 +114,8 @@ public class DefaultBundleExtractor implements BundleExtractor {
             artifactId = getManifestAttribute(jarFile, "Implementation-Title");
         }
         if (artifactId.equals("")) {
-            log.info("Could not extract bundle because nothing of relevant data is present for bundle " + path.toString());
+            log.info("Could not extract bundle because nothing of relevant data is present for bundle "
+                    + path.toString());
         }
 
         String version = getManifestAttribute(jarFile, "Implementation-Version");
@@ -130,9 +128,7 @@ public class DefaultBundleExtractor implements BundleExtractor {
 
     private void deleteDirectory(Path path) throws IOException {
         try (Stream<Path> paths = Files.walk(path, FileVisitOption.FOLLOW_LINKS)) {
-            paths.sorted(Comparator.reverseOrder())
-                    .map(Path::toFile)
-                    .forEach(File::delete);
+            paths.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
         }
     }
 
@@ -152,7 +148,8 @@ public class DefaultBundleExtractor implements BundleExtractor {
         return "";
     }
 
-    private boolean extractPom(Path path, Path bundlePath, JarFile jarFile, JarEntry entry, String embeddedDependencies) throws IOException, XmlPullParserException {
+    private boolean extractPom(Path path, Path bundlePath, JarFile jarFile, JarEntry entry, String embeddedDependencies)
+            throws IOException, XmlPullParserException {
         MavenXpp3Reader reader = new MavenXpp3Reader();
         Model model = reader.read(jarFile.getInputStream(entry));
         String groupId = model.getGroupId();
@@ -178,38 +175,27 @@ public class DefaultBundleExtractor implements BundleExtractor {
             log.info("Extracted and renamed for " + groupId + ":" + artifactId);
             return true;
         } else {
-            log.info("Found a pom.xml with artifact id " + artifactId + " that is not of this bundle (probably an embedded or inlined resource) for " + path.toString());
+            log.info("Found a pom.xml with artifact id " + artifactId
+                    + " that is not of this bundle (probably an embedded or inlined resource) for " + path.toString());
             return false;
         }
     }
 
     private void moveToOutputFolder(Path path, String groupId, String artifactId, String version) throws IOException {
         Path outputPath = Paths.get(bundlesDirOutput);
-        if (separateArtifactsAndSources) {
-            Path artifact = path.resolve(artifactId).resolve(artifactId + "-" + version + ".jar");
-            Path sources = path.resolve(artifactId).resolve(artifactId + "-" + version + "-sources.jar");
-            Files.move(artifact, outputPath.resolve("artifacts").resolve(artifactId + "-" + version + ".jar"), StandardCopyOption.REPLACE_EXISTING);
-            Files.move(sources, outputPath.resolve("sources").resolve(artifactId + "-" + version + "-sources.jar"), StandardCopyOption.REPLACE_EXISTING);
-        } else {
-            moveToGroupIdOutputFolder(outputPath, path, groupId, artifactId);
-        }
-    }
-
-    private void moveToGroupIdOutputFolder(Path outputPath, Path path, String groupId, String artifactId) throws IOException {
-        if (!Files.exists(outputPath.resolve(groupId))) {
-            Files.createDirectory(outputPath.resolve(groupId));
-        }
-        try {
-            Files.move(path.resolve(artifactId), outputPath.resolve(groupId).resolve(artifactId), StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException e) {
-            log.error("Could not move bundle " + path.toString(), e);
-        }
+        Path artifact = path.resolve(artifactId).resolve(artifactId + "-" + version + ".jar");
+        Path sources = path.resolve(artifactId).resolve(artifactId + "-" + version + "-sources.jar");
+        Files.move(artifact, outputPath.resolve("artifacts").resolve(artifactId + "-" + version + ".jar"),
+                StandardCopyOption.REPLACE_EXISTING);
+        Files.move(sources, outputPath.resolve("sources").resolve(artifactId + "-" + version + "-sources.jar"),
+                StandardCopyOption.REPLACE_EXISTING);
     }
 
     public boolean downloadSources(Path directory, String groupId, String artifectId, String version) {
         try {
             String sourcesJarName = artifectId + "-" + version + "-sources.jar";
-            URL website = new URL("https://repo1.maven.org/maven2/" + groupId.replaceAll("\\.", "/") + "/" + artifectId + "/" + version + "/" + sourcesJarName);
+            URL website = new URL("https://repo1.maven.org/maven2/" + groupId.replaceAll("\\.", "/") + "/" + artifectId
+                    + "/" + version + "/" + sourcesJarName);
             HttpURLConnection huc = (HttpURLConnection) website.openConnection();
             huc.setRequestMethod("HEAD");
             huc.connect();
@@ -233,7 +219,7 @@ public class DefaultBundleExtractor implements BundleExtractor {
     }
 
     private Path getVersionDirectory(Path path) throws IOException {
-        final Path[] result = {null};
+        final Path[] result = { null };
         try (Stream<Path> paths = Files.walk(path)) {
             paths.forEach(filePath -> {
                 if (filePath.toString().contains("version") && result[0] == null) {
@@ -250,7 +236,8 @@ public class DefaultBundleExtractor implements BundleExtractor {
         ConsoleDecompiler decompiler = new ConsoleDecompiler(directory.resolve("sources").toFile(), options);
         decompiler.addSpace(directory.resolve(artifactId + "-" + version + ".jar").toFile(), true);
         decompiler.decompileContext();
-        Files.move(directory.resolve("sources").resolve(artifactId + "-" + version + ".jar"), directory.resolve(artifactId + "-" + version + "-sources.jar"));
+        Files.move(directory.resolve("sources").resolve(artifactId + "-" + version + ".jar"),
+                directory.resolve(artifactId + "-" + version + "-sources.jar"));
         deleteDirectory(directory.resolve("sources"));
         decompiledCount++;
     }

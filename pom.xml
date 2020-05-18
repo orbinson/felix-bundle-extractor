@@ -9,6 +9,32 @@
 
 	<name>Felix Bundle Extractor</name>
 	<description>Sorts and decompiles your Felix / OSGi bundles in to a searchable directory</description>
+    <url>https://github.com/Idoneus/felix-bundle-extractor</url>
+
+    <licenses>
+        <license>
+            <name>The MIT License</name>
+            <url>https://raw.githubusercontent.com/Idoneus/felix-bundle-extractor/develop/LICENSE</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>royteeuwen</id>
+            <name>Roy Teeuwen</name>
+            <email>roy@teeuwen.be</email>
+            <organization>Idoneus</organization>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:git://github.com/Idoneus/felix-bundle-extractor.git</connection>
+        <developerConnection>scm:git:git://github.com/Idoneus/felix-bundle-extractor.git</developerConnection>
+        <url>https://github.com/Idoneus/felix-bundle-extractor</url>
+        <tag>HEAD</tag>
+    </scm>
+
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

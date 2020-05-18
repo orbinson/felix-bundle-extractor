@@ -7,19 +7,20 @@ public class BundleExtractorConfig {
 
     private String bundleInputDir;
     private String bundleOutputDir;
+    private String outputResultFileName;
     private int threadCount;
-    private List<String> excludedArtifacts = new ArrayList<>();
+    private List<String> excludedDecompilation = new ArrayList<>();
 
     public String getBundleInputDir() {
         return bundleInputDir;
     }
 
-    public List<String> getExcludedArtifacts() {
-        return excludedArtifacts;
+    public List<String> getExcludedDecompilation() {
+        return excludedDecompilation;
     }
 
-    public void setExcludedArtifacts(List<String> excludedArtifacts) {
-        this.excludedArtifacts = excludedArtifacts;
+    public void setExcludedDecompilation(List<String> excludedDecompilation) {
+        this.excludedDecompilation = excludedDecompilation;
     }
 
     public int getThreadCount() {
@@ -40,6 +41,14 @@ public class BundleExtractorConfig {
 
     public void setBundleInputDir(String bundleInputDir) {
         this.bundleInputDir = bundleInputDir;
+    }
+
+    public void setOutputResultFileName(String outputResultFileName) {
+        this.outputResultFileName =outputResultFileName;
+    }
+
+    public String getOutputResultFileName() {
+        return outputResultFileName;
     }
 
 }

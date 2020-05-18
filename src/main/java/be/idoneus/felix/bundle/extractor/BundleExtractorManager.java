@@ -3,30 +3,32 @@ package be.idoneus.felix.bundle.extractor;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import be.idoneus.felix.bundle.extractor.impl.DefaultBundleExtractor;
-
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+import com.google.gson.Gson;
 
 /**
  * Extracts the bundles from the felix launchpad directory given by bundles.dir
  */
-public class BundleExtractorService {
+public class BundleExtractorManager {
 
-    private Log log = LogFactory.getLog(BundleExtractorService.class);
+    private Log log = LogFactory.getLog(BundleExtractorManager.class);
 
     private final BundleExtractor extractor;
     private final BundleExtractorConfig config;
 
-    public BundleExtractorService(BundleExtractorConfig config) {
+    public BundleExtractorManager(BundleExtractorConfig config) {
         this.config = config;
-        this.extractor = new DefaultBundleExtractor(config);
+        this.extractor = new BundleExtractor(config);
     }
 
     void run() {
@@ -37,12 +39,12 @@ public class BundleExtractorService {
     private void extractBundles() {
         ExecutorService executorService = Executors.newFixedThreadPool(config.getThreadCount());
 
-        List<CompletableFuture<Path>> futures = new ArrayList<>();
+        List<CompletableFuture<BundleExtractionResult>> futures = new ArrayList<>();
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(Paths.get(config.getBundleInputDir()))) {
             // loop over all bundle jars
             for (Path path : stream) {
-                CompletableFuture<Path> cf = CompletableFuture.supplyAsync(() -> extractor.extract(path),
-                        executorService);
+                CompletableFuture<BundleExtractionResult> cf = CompletableFuture
+                        .supplyAsync(() -> extractor.extract(path), executorService);
                 futures.add(cf);
             }
         } catch (IOException e) {
@@ -62,8 +64,37 @@ public class BundleExtractorService {
             executorService.shutdownNow();
         }
 
-        log.info("Downloaded " + extractor.getDownloadCount() + ", decompiled " + extractor.getDecompiledCount()
-                + " and unprocessed " + extractor.getUnprocessedCount() + " in total");
+        // create the result list
+        List<BundleExtractionResult> bundleExtractionResults = new ArrayList<>();
+        for (CompletableFuture<BundleExtractionResult> future : futures) {
+            try {
+                bundleExtractionResults.add(future.get());
+            } catch (InterruptedException | ExecutionException e) {
+                log.error("Could not get future", e);
+            }
+        }
+
+        createOutputResult(bundleExtractionResults);
+    }
+
+    private void createOutputResult(List<BundleExtractionResult> bundleExtractionResults) {
+        FelixBundleExtractorResult result = new FelixBundleExtractorResult();
+        result.setBundleExtractionResults(bundleExtractionResults);
+        result.setDecompiledCount(bundleExtractionResults.stream().filter(r -> r.isDecompiled()).count());
+        result.setDownloadCount(bundleExtractionResults.stream().filter(r -> r.hasSources()).count());
+        result.setUnprocessedCount(bundleExtractionResults.stream().filter(r -> !r.getProcessed()).count());
+
+        String jsonResult = new Gson().toJson(result);
+
+        try {
+            Files.write(Paths.get(config.getBundleOutputDir()).resolveSibling(config.getOutputResultFileName()),
+                    jsonResult.getBytes());
+        } catch (IOException e) {
+            log.error("Could not write to output file", e);
+        }
+
+        log.info("Downloaded " + result.getDownloadCount() + ", decompiled " + result.getDecompiledCount()
+                + " and unprocessed " + result.getUnprocessedCount() + " in total");
     }
 
     private void createOutputDirectory() {

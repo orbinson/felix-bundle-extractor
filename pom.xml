@@ -9,32 +9,31 @@
 
 	<name>Felix Bundle Extractor</name>
 	<description>Sorts and decompiles your Felix / OSGi bundles in to a searchable directory</description>
-    <url>https://github.com/Idoneus/felix-bundle-extractor</url>
+	<url>https://github.com/Idoneus/felix-bundle-extractor</url>
 
-    <licenses>
-        <license>
-            <name>The MIT License</name>
-            <url>https://raw.githubusercontent.com/Idoneus/felix-bundle-extractor/develop/LICENSE</url>
-            <distribution>repo</distribution>
-        </license>
-    </licenses>
+	<licenses>
+		<license>
+			<name>The MIT License</name>
+			<url>https://raw.githubusercontent.com/Idoneus/felix-bundle-extractor/develop/LICENSE</url>
+			<distribution>repo</distribution>
+		</license>
+	</licenses>
 
-    <developers>
-        <developer>
-            <id>royteeuwen</id>
-            <name>Roy Teeuwen</name>
-            <email>roy@teeuwen.be</email>
-            <organization>Idoneus</organization>
-        </developer>
-    </developers>
+	<developers>
+		<developer>
+			<id>royteeuwen</id>
+			<name>Roy Teeuwen</name>
+			<email>roy@teeuwen.be</email>
+			<organization>Idoneus</organization>
+		</developer>
+	</developers>
 
-    <scm>
-        <connection>scm:git:git://github.com/Idoneus/felix-bundle-extractor.git</connection>
-        <developerConnection>scm:git:git://github.com/Idoneus/felix-bundle-extractor.git</developerConnection>
-        <url>https://github.com/Idoneus/felix-bundle-extractor</url>
-        <tag>HEAD</tag>
-    </scm>
-
+	<scm>
+		<connection>scm:git:git://github.com/Idoneus/felix-bundle-extractor.git</connection>
+		<developerConnection>scm:git:git://github.com/Idoneus/felix-bundle-extractor.git</developerConnection>
+		<url>https://github.com/Idoneus/felix-bundle-extractor</url>
+		<tag>HEAD</tag>
+	</scm>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -89,6 +88,32 @@
 					<release>11</release>
 				</configuration>
 			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-assembly-plugin</artifactId>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+						<configuration>
+							<finalName>${project.artifactId}-${project.version}</finalName>
+							<appendAssemblyId>false</appendAssemblyId>
+							<archive>
+								<manifest>
+									<mainClass>
+									be.idoneus.felix.bundle.extractor.FelixBundleExtractorApplication
+								</mainClass>
+								</manifest>
+							</archive>
+							<descriptorRefs>
+								<descriptorRef>jar-with-dependencies</descriptorRef>
+							</descriptorRefs>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
 		<pluginManagement>
 			<plugins>
@@ -141,27 +166,27 @@
 						<artifactId>maven-source-plugin</artifactId>
 						<version>3.2.1</version>
 						<executions>
-						  <execution>
-							<id>attach-sources</id>
-							<goals>
-							  <goal>jar-no-fork</goal>
-							</goals>
-						  </execution>
+							<execution>
+								<id>attach-sources</id>
+								<goals>
+									<goal>jar-no-fork</goal>
+								</goals>
+							</execution>
 						</executions>
-					  </plugin>
-					  <plugin>
+					</plugin>
+					<plugin>
 						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-javadoc-plugin</artifactId>
 						<version>3.2.0</version>
 						<executions>
-						  <execution>
-							<id>attach-javadocs</id>
-							<goals>
-							  <goal>jar</goal>
-							</goals>
-						  </execution>
+							<execution>
+								<id>attach-javadocs</id>
+								<goals>
+									<goal>jar</goal>
+								</goals>
+							</execution>
 						</executions>
-					  </plugin>
+					</plugin>
 				</plugins>
 			</build>
 		</profile>

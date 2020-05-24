@@ -1,26 +1,41 @@
 package be.idoneus.felix.bundle.extractor;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class BundleExtractorConfig {
 
     private String bundleInputDir;
     private String bundleOutputDir;
     private String outputResultFileName;
     private int threadCount;
-    private List<String> excludedDecompilation = new ArrayList<>();
+    private String excludeGroupIds;
+    private String excludeArtifactIds;
+    private boolean exludeNonMavenArtifacts = false;
 
     public String getBundleInputDir() {
         return bundleInputDir;
     }
 
-    public List<String> getExcludedDecompilation() {
-        return excludedDecompilation;
+    public boolean isExludeNonMavenArtifacts() {
+        return exludeNonMavenArtifacts;
     }
 
-    public void setExcludedDecompilation(List<String> excludedDecompilation) {
-        this.excludedDecompilation = excludedDecompilation;
+    public void setExludeNonMavenArtifacts(boolean exludeNonMavenArtifacts) {
+        this.exludeNonMavenArtifacts = exludeNonMavenArtifacts;
+    }
+
+    public String getExcludeArtifactIds() {
+        return excludeArtifactIds;
+    }
+
+    public void setExcludeArtifactIds(String excludeArtifactIds) {
+        this.excludeArtifactIds = excludeArtifactIds;
+    }
+
+    public String getExcludeGroupIds() {
+        return excludeGroupIds;
+    }
+
+    public void setExcludeGroupIds(String excludeGroupIds) {
+        this.excludeGroupIds = excludeGroupIds;
     }
 
     public int getThreadCount() {

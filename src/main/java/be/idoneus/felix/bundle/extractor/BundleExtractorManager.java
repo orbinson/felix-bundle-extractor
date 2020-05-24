@@ -79,10 +79,12 @@ public class BundleExtractorManager {
 
     private void createOutputResult(List<BundleExtractionResult> bundleExtractionResults) {
         FelixBundleExtractorResult result = new FelixBundleExtractorResult();
-        result.setBundleExtractionResults(bundleExtractionResults);
+        result.setBundleExtractionResults(
+                bundleExtractionResults.stream().filter(r -> r.getArtifactId() != null).collect(Collectors.toList()));
         result.setDecompiledCount(bundleExtractionResults.stream().filter(r -> r.isDecompiled()).count());
         result.setDownloadCount(bundleExtractionResults.stream().filter(r -> r.hasSources()).count());
         result.setUnprocessedCount(bundleExtractionResults.stream().filter(r -> !r.getProcessed()).count());
+        result.setExcludedCount(bundleExtractionResults.stream().filter(r -> r.isExcluded()).count());
 
         String jsonResult = new Gson().toJson(result);
 
@@ -94,7 +96,8 @@ public class BundleExtractorManager {
         }
 
         log.info("Downloaded " + result.getDownloadCount() + ", decompiled " + result.getDecompiledCount()
-                + " and unprocessed " + result.getUnprocessedCount() + " in total");
+                + ", excluded " + result.getExcludedCount() + " and unprocessed " + result.getUnprocessedCount()
+                + " in total");
     }
 
     private void createOutputDirectory() {

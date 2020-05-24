@@ -9,9 +9,18 @@ public class FelixBundleExtractorResult {
     private long decompiledCount = 0;
     private long downloadCount = 0;
     private long unprocessedCount = 0;
+    private long excludedCount = 0;
 
     public long getDecompiledCount() {
         return decompiledCount;
+    }
+
+    public long getExcludedCount() {
+        return excludedCount;
+    }
+
+    public void setExcludedCount(long excludedCount) {
+        this.excludedCount = excludedCount;
     }
 
     public List<BundleExtractionResult> getBundleExtractionResults() {

@@ -11,6 +11,7 @@ public class BundleExtractionResult {
     private boolean processed;
     private boolean fromPom;
     private boolean fromManifest;
+    private boolean excluded = false;
 
     public String getPath() {
         return path;
@@ -82,6 +83,14 @@ public class BundleExtractionResult {
 
     public void setPath(String path) {
         this.path = path;
+    }
+
+    public void setExcluded(boolean excluded) {
+        this.excluded = excluded;
+    }
+
+    public boolean isExcluded() {
+        return excluded;
     }
 
 }

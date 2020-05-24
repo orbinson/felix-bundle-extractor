@@ -80,8 +80,14 @@ public class BundleExtractor {
                 }
             }
             if (!extracted) {
-                log.info("Could not get a pom.xml for bundle " + path.toString() + " , defaulting back to manifest");
-                extractFromManifest(result, path, bundlePath, jarFile);
+                if (!config.isExludeNonMavenArtifacts()) {
+                    log.info(
+                            "Could not get a pom.xml for bundle " + path.toString() + " , defaulting back to manifest");
+                    extractFromManifest(result, path, bundlePath, jarFile);
+                } else {
+                    log.info("Could not get a pom.xml for bundle " + path.toString()
+                            + " and manifest extraction disabled, skipping");
+                }
             }
         } catch (IOException e) {
             log.error("Could not get jarfile", e);
@@ -92,8 +98,8 @@ public class BundleExtractor {
             throws IOException {
         String groupId = getManifestAttribute(jarFile, "Implementation-Vendor-Id");
         if (groupId.equals("")) {
-            // defaulting to com.adobe
-            groupId = "com.adobe";
+            // defaulting to com.adobe.manifest
+            groupId = "com.adobe.manifest";
         }
         String artifactId = getManifestAttribute(jarFile, "Bundle-SymbolicName");
         if (artifactId.equals("")) {
@@ -111,15 +117,44 @@ public class BundleExtractor {
         result.setGroupId(groupId);
         result.setVersion(version);
 
-        Files.createDirectory(path.resolve(artifactId));
-        Files.copy(bundlePath, path.resolve(artifactId).resolve(artifactId + "-" + version + ".jar"));
-        if(!config.getExcludedDecompilation().contains(artifactId)) {
-            createSourceJar(path.resolve(artifactId), artifactId, version);
-            result.setDecompiled(true);
+        if (isExcludedGroupId(groupId)) {
+            log.info("Not extracting manifest because the group id " + groupId + " is excluded");
+            result.setExcluded(true);
+            return;
+        } else if (isExcludedArtifactId(artifactId)) {
+            log.info("Not extracting manifest because the artifact id " + artifactId + " is excluded");
+            result.setExcluded(true);
+            return;
         }
-        moveToOutputFolder(path, groupId, artifactId, version);
-        FileUtils.deleteDirectory(path.resolve(artifactId).toFile());
+
+        Path buildDirectory = path.resolve(artifactId + "-extracted");
+        if (Files.exists(buildDirectory)) {
+            deleteDirectoryStream(buildDirectory);
+        }
+        Files.createDirectory(buildDirectory);
+
+        Files.copy(bundlePath, buildDirectory.resolve(artifactId + "-" + version + ".jar"));
+        createSourceJar(buildDirectory, artifactId, version);
+        result.setDecompiled(true);
+        moveToOutputFolder(buildDirectory, groupId, artifactId, version);
+        FileUtils.deleteDirectory(buildDirectory.toFile());
         log.info("Extracted and renamed with manifest.mf for " + groupId + ":" + artifactId);
+    }
+
+    private boolean isExcludedArtifactId(String artifactId) {
+        if (config.getExcludeArtifactIds() == null || config.getExcludeArtifactIds().equals("")) {
+            return false;
+        } else {
+            return artifactId.matches(config.getExcludeArtifactIds());
+        }
+    }
+
+    private boolean isExcludedGroupId(String groupId) {
+        if (config.getExcludeGroupIds() == null || config.getExcludeGroupIds().equals("")) {
+            return false;
+        } else {
+            return groupId.matches(config.getExcludeGroupIds());
+        }
     }
 
     private void deleteDirectory(Path path) throws IOException {
@@ -153,6 +188,7 @@ public class BundleExtractor {
             groupId = model.getParent().getGroupId();
         }
         String artifactId = model.getArtifactId();
+
         if (!embeddedDependencies.contains(artifactId)) {
             String version = model.getVersion();
             if (version == null) {
@@ -164,21 +200,35 @@ public class BundleExtractor {
             result.setGroupId(groupId);
             result.setVersion(version);
 
-            InputStream entryStream = jarFile.getInputStream(entry);
-            Files.createDirectory(path.resolve(artifactId));
-            Files.copy(entryStream, path.resolve(artifactId).resolve("pom.xml"));
-            Files.copy(bundlePath, path.resolve(artifactId).resolve(artifactId + "-" + version + ".jar"));
-            if (!config.getExcludedDecompilation().contains(artifactId)) {
-                boolean sourcesFound = downloadSources(path.resolve(artifactId), groupId, artifactId, version);
-                if (!sourcesFound) {
-                    createSourceJar(path.resolve(artifactId), artifactId, version);
-                    result.setDecompiled(true);
-                } else {
-                    result.setHasSources(true);
-                }
+            if (isExcludedGroupId(groupId)) {
+                log.info("Not extracting manifest because the group id " + groupId + " is excluded");
+                result.setExcluded(true);
+                return true;
+            } else if (isExcludedArtifactId(artifactId)) {
+                log.info("Not extracting manifest because the artifact id " + artifactId + " is excluded");
+                result.setExcluded(true);
+                return true;
             }
-            moveToOutputFolder(path, groupId, artifactId, version);
-            FileUtils.deleteDirectory(path.resolve(artifactId).toFile());
+
+            InputStream entryStream = jarFile.getInputStream(entry);
+
+            Path buildDirectory = path.resolve(artifactId + "-extracted");
+            if (Files.exists(buildDirectory)) {
+                deleteDirectoryStream(buildDirectory);
+            }
+            Files.createDirectory(buildDirectory);
+
+            Files.copy(entryStream, buildDirectory.resolve("pom.xml"));
+            Files.copy(bundlePath, buildDirectory.resolve(artifactId + "-" + version + ".jar"));
+            boolean sourcesFound = downloadSources(buildDirectory, groupId, artifactId, version);
+            if (!sourcesFound) {
+                createSourceJar(buildDirectory, artifactId, version);
+                result.setDecompiled(true);
+            } else {
+                result.setHasSources(true);
+            }
+            moveToOutputFolder(buildDirectory, groupId, artifactId, version);
+            FileUtils.deleteDirectory(buildDirectory.toFile());
             log.info("Extracted and renamed for " + groupId + ":" + artifactId);
 
             return true;
@@ -189,10 +239,15 @@ public class BundleExtractor {
         }
     }
 
-    private void moveToOutputFolder(Path path, String groupId, String artifactId, String version) throws IOException {
+    private void deleteDirectoryStream(Path path) throws IOException {
+        Files.walk(path).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+    }
+
+    private void moveToOutputFolder(Path buildDirectory, String groupId, String artifactId, String version)
+            throws IOException {
         Path outputPath = Paths.get(config.getBundleOutputDir());
-        Path artifact = path.resolve(artifactId).resolve(artifactId + "-" + version + ".jar");
-        Path sources = path.resolve(artifactId).resolve(artifactId + "-" + version + "-sources.jar");
+        Path artifact = buildDirectory.resolve(artifactId + "-" + version + ".jar");
+        Path sources = buildDirectory.resolve(artifactId + "-" + version + "-sources.jar");
         Files.move(artifact, outputPath.resolve("artifacts").resolve(artifactId + "-" + version + ".jar"),
                 StandardCopyOption.REPLACE_EXISTING);
         Files.move(sources, outputPath.resolve("sources").resolve(artifactId + "-" + version + "-sources.jar"),

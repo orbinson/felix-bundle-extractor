@@ -25,8 +25,9 @@ public class FelixBundleExtractorApplication {
             config.setBundleOutputDir(cmd.getOptionValue("bundlesOutputDir"));
             config.setOutputResultFileName(cmd.getOptionValue("outputResultFileName", "result.json"));
             config.setThreadCount(Integer.valueOf(cmd.getOptionValue("threadCount", "8")));
-            config.setExcludedDecompilation(Arrays
-                    .asList(Optional.ofNullable(cmd.getOptionValues("excludeDecompilation")).orElse(new String[0])));
+            config.setExcludeGroupIds(cmd.getOptionValue("excludedGroupIds"));
+            config.setExcludeArtifactIds(cmd.getOptionValue("excludedArtifactIds"));
+            config.setExludeNonMavenArtifacts(cmd.hasOption("excludeNonMavenArtifacts"));
 
             BundleExtractorManager bundleExtractorService = new BundleExtractorManager(config);
             bundleExtractorService.run();
@@ -56,9 +57,17 @@ public class FelixBundleExtractorApplication {
         Option threadCount = new Option("t", "threadCount", true, "thread count for the bundle extraction");
         options.addOption(threadCount);
 
-        Option excludeDecompilation = new Option("ed", "excludeDecompilation", true,
-                "Exclude artificact id's from decompilation");
-        options.addOption(excludeDecompilation);
+        Option excludedGroupIds = new Option("eg", "excludedGroupIds", true,
+                "Regex pattern to exclude group id's from decompilation");
+        options.addOption(excludedGroupIds);
+
+        Option excludedArtifactIds = new Option("ea", "excludedArtifactIds", true,
+                "Regex pattern to exclude artificact id's from decompilation");
+        options.addOption(excludedArtifactIds);
+
+        Option exludeNonMavenArtifacts = new Option("enma", "excludeNonMavenArtifacts", false,
+        "Exclude artifacts that don't contain a maven pom");
+        options.addOption(exludeNonMavenArtifacts);
 
         return options;
     }

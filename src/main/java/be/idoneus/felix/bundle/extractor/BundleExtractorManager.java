@@ -89,7 +89,7 @@ public class BundleExtractorManager {
         String jsonResult = new Gson().toJson(result);
 
         try {
-            Files.write(Paths.get(config.getBundleOutputDir()).resolveSibling(config.getOutputResultFileName()),
+            Files.write(Paths.get(config.getBundleOutputDir()).resolve(config.getOutputResultFileName()),
                     jsonResult.getBytes());
         } catch (IOException e) {
             log.error("Could not write to output file", e);

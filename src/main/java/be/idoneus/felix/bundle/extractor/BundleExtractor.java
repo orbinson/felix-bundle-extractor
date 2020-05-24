@@ -201,11 +201,11 @@ public class BundleExtractor {
             result.setVersion(version);
 
             if (isExcludedGroupId(groupId)) {
-                log.info("Not extracting manifest because the group id " + groupId + " is excluded");
+                log.info("Not extracting pom because the group id " + groupId + " is excluded");
                 result.setExcluded(true);
                 return true;
             } else if (isExcludedArtifactId(artifactId)) {
-                log.info("Not extracting manifest because the artifact id " + artifactId + " is excluded");
+                log.info("Not extracting pom because the artifact id " + artifactId + " is excluded");
                 result.setExcluded(true);
                 return true;
             }

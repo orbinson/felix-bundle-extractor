@@ -41,6 +41,7 @@ public class BundleExtractor {
 
     public BundleExtractionResult extract(Path path) {
         BundleExtractionResult result = new BundleExtractionResult();
+        long startTime = System.nanoTime();
         result.setPath(path.toString());
         try {
             Path versionPath = getVersionDirectory(path);
@@ -61,6 +62,8 @@ public class BundleExtractor {
             log.error("Could not extract bundle", e);
             result.setProcessed(false);
         }
+        long elapsedTime = System.nanoTime() - startTime;
+        log.debug("Extraction of " + path.toString() + " took " + elapsedTime / 1_000_000_000 + " seconds");
         return result;
     }
 
@@ -293,6 +296,7 @@ public class BundleExtractor {
     }
 
     private void createSourceJar(Path directory, String artifactId, String version) throws IOException {
+        long startTime = System.nanoTime();
         Map<String, Object> options = new HashMap<>();
         options.put(IFernflowerPreferences.LOG_LEVEL, IFernflowerLogger.Severity.ERROR.toString());
         ConsoleDecompiler decompiler = new ConsoleDecompiler(directory.resolve("sources").toFile(), options);
@@ -301,5 +305,7 @@ public class BundleExtractor {
         Files.move(directory.resolve("sources").resolve(artifactId + "-" + version + ".jar"),
                 directory.resolve(artifactId + "-" + version + "-sources.jar"));
         deleteDirectory(directory.resolve("sources"));
+        long elapsedTime = System.nanoTime() - startTime;
+        log.debug("Decompilation of " + artifactId + " took " + elapsedTime / 1_000_000_000 + " seconds");
     }
 }

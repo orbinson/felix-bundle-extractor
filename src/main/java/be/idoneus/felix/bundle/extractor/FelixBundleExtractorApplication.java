@@ -1,6 +1,5 @@
 package be.idoneus.felix.bundle.extractor;
 
-import java.util.Arrays;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;

@@ -1,30 +1,27 @@
 package be.idoneus.felix.bundle.extractor;
 
+import com.google.gson.Gson;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
-
-import com.google.gson.Gson;
 
 /**
  * Extracts the bundles from the felix launchpad directory given by bundles.dir
  */
 public class BundleExtractorManager {
 
-    private Log log = LogFactory.getLog(BundleExtractorManager.class);
-
     private final BundleExtractor extractor;
     private final BundleExtractorConfig config;
+    private final Log log = LogFactory.getLog(BundleExtractorManager.class);
 
     public BundleExtractorManager(BundleExtractorConfig config) {
         this.config = config;
@@ -36,6 +33,7 @@ public class BundleExtractorManager {
         extractBundles();
     }
 
+    @SuppressWarnings("java:S2142")
     private void extractBundles() {
         ExecutorService executorService = Executors.newFixedThreadPool(config.getThreadCount());
 
@@ -81,10 +79,10 @@ public class BundleExtractorManager {
         FelixBundleExtractorResult result = new FelixBundleExtractorResult();
         result.setBundleExtractionResults(
                 bundleExtractionResults.stream().filter(r -> r.getArtifactId() != null).collect(Collectors.toList()));
-        result.setDecompiledCount(bundleExtractionResults.stream().filter(r -> r.isDecompiled()).count());
-        result.setDownloadCount(bundleExtractionResults.stream().filter(r -> r.hasSources()).count());
+        result.setDecompiledCount(bundleExtractionResults.stream().filter(BundleExtractionResult::isDecompiled).count());
+        result.setDownloadCount(bundleExtractionResults.stream().filter(BundleExtractionResult::hasSources).count());
         result.setUnprocessedCount(bundleExtractionResults.stream().filter(r -> !r.getProcessed()).count());
-        result.setExcludedCount(bundleExtractionResults.stream().filter(r -> r.isExcluded()).count());
+        result.setExcludedCount(bundleExtractionResults.stream().filter(BundleExtractionResult::isExcluded).count());
 
         String jsonResult = new Gson().toJson(result);
 

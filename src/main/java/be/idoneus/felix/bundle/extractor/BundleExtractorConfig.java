@@ -6,20 +6,25 @@ public class BundleExtractorConfig {
     private String bundleOutputDir;
     private String outputResultFileName;
     private int threadCount;
+    private String includeGroupIds;
     private String excludeGroupIds;
     private String excludeArtifactIds;
-    private boolean exludeNonMavenArtifacts = false;
+    private boolean excludeNonMavenArtifacts = false;
 
     public String getBundleInputDir() {
         return bundleInputDir;
     }
 
-    public boolean isExludeNonMavenArtifacts() {
-        return exludeNonMavenArtifacts;
+    public void setBundleInputDir(String bundleInputDir) {
+        this.bundleInputDir = bundleInputDir;
     }
 
-    public void setExludeNonMavenArtifacts(boolean exludeNonMavenArtifacts) {
-        this.exludeNonMavenArtifacts = exludeNonMavenArtifacts;
+    public boolean isExcludeNonMavenArtifacts() {
+        return excludeNonMavenArtifacts;
+    }
+
+    public void setExcludeNonMavenArtifacts(boolean excludeNonMavenArtifacts) {
+        this.excludeNonMavenArtifacts = excludeNonMavenArtifacts;
     }
 
     public String getExcludeArtifactIds() {
@@ -54,16 +59,19 @@ public class BundleExtractorConfig {
         this.bundleOutputDir = bundleOutputDir;
     }
 
-    public void setBundleInputDir(String bundleInputDir) {
-        this.bundleInputDir = bundleInputDir;
-    }
-
-    public void setOutputResultFileName(String outputResultFileName) {
-        this.outputResultFileName =outputResultFileName;
-    }
-
     public String getOutputResultFileName() {
         return outputResultFileName;
     }
 
+    public void setOutputResultFileName(String outputResultFileName) {
+        this.outputResultFileName = outputResultFileName;
+    }
+
+    public String getIncludeGroupIds() {
+        return includeGroupIds;
+    }
+
+    public void setIncludeGroupIds(String includeGroupIds) {
+        this.includeGroupIds = includeGroupIds;
+    }
 }

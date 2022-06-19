@@ -1,7 +1,5 @@
 package be.idoneus.felix.bundle.extractor;
 
-import be.idoneus.felix.bundle.extractor.BundleExtractor;
-
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -11,6 +9,7 @@ import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 import org.jetbrains.java.decompiler.main.decompiler.ConsoleDecompiler;
 import org.jetbrains.java.decompiler.main.extern.IFernflowerLogger;
 import org.jetbrains.java.decompiler.main.extern.IFernflowerPreferences;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -20,10 +19,7 @@ import java.net.URL;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.file.*;
-import java.util.Comparator;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
@@ -31,9 +27,11 @@ import java.util.stream.Stream;
 
 public class BundleExtractor {
 
-    private Log log = LogFactory.getLog(BundleExtractor.class);
-
+    public static final String IS_EXCLUDED = " is excluded";
+    public static final String SOURCES = "sources";
+    public static final String SOURCES_JAR = "-sources.jar";
     private final BundleExtractorConfig config;
+    private final Log log = LogFactory.getLog(BundleExtractor.class);
 
     public BundleExtractor(BundleExtractorConfig config) {
         this.config = config;
@@ -51,11 +49,11 @@ public class BundleExtractor {
                     extractJarFile(result, path, bundlePath);
                     result.setProcessed(true);
                 } else {
-                    log.info("Could not find bundle jar" + path.toString());
+                    log.info("Could not find bundle jar" + path);
                     result.setProcessed(false);
                 }
             } else {
-                log.info("Could not find version directory" + path.toString());
+                log.info("Could not find version directory" + path);
                 result.setProcessed(false);
             }
         } catch (Exception e) {
@@ -63,7 +61,7 @@ public class BundleExtractor {
             result.setProcessed(false);
         }
         long elapsedTime = System.nanoTime() - startTime;
-        log.debug("Extraction of " + path.toString() + " took " + elapsedTime / 1_000_000_000 + " seconds");
+        log.debug("Extraction of " + path + " took " + elapsedTime / 1_000_000_000 + " seconds");
         return result;
     }
 
@@ -83,7 +81,7 @@ public class BundleExtractor {
                 }
             }
             if (!extracted) {
-                if (!config.isExludeNonMavenArtifacts()) {
+                if (!config.isExcludeNonMavenArtifacts()) {
                     log.info(
                             "Could not get a pom.xml for bundle " + path.toString() + " , defaulting back to manifest");
                     extractFromManifest(result, path, bundlePath, jarFile);
@@ -121,11 +119,11 @@ public class BundleExtractor {
         result.setVersion(version);
 
         if (isExcludedGroupId(groupId)) {
-            log.info("Not extracting manifest because the group id " + groupId + " is excluded");
+            log.info("Not extracting manifest because the group id " + groupId + IS_EXCLUDED);
             result.setExcluded(true);
             return;
         } else if (isExcludedArtifactId(artifactId)) {
-            log.info("Not extracting manifest because the artifact id " + artifactId + " is excluded");
+            log.info("Not extracting manifest because the artifact id " + artifactId + IS_EXCLUDED);
             result.setExcluded(true);
             return;
         }
@@ -139,7 +137,7 @@ public class BundleExtractor {
         Files.copy(bundlePath, buildDirectory.resolve(artifactId + "-" + version + ".jar"));
         createSourceJar(buildDirectory, artifactId, version);
         result.setDecompiled(true);
-        moveToOutputFolder(buildDirectory, groupId, artifactId, version);
+        moveToOutputFolder(buildDirectory, artifactId, version);
         FileUtils.deleteDirectory(buildDirectory.toFile());
         log.info("Extracted and renamed with manifest.mf for " + groupId + ":" + artifactId);
     }
@@ -160,6 +158,13 @@ public class BundleExtractor {
         }
     }
 
+    private boolean isIncludedGroupId(String groupId) {
+        if (config.getIncludeGroupIds() == null || config.getIncludeGroupIds().equals("")) {
+            return true;
+        }
+        return groupId.matches(config.getIncludeGroupIds());
+    }
+
     private void deleteDirectory(Path path) throws IOException {
         try (Stream<Path> paths = Files.walk(path, FileVisitOption.FOLLOW_LINKS)) {
             paths.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
@@ -173,17 +178,14 @@ public class BundleExtractor {
             if (entry.getName().equals("META-INF/MANIFEST.MF")) {
                 Manifest manifest = new Manifest(jarFile.getInputStream(entry));
                 String embeddedDependencies = manifest.getMainAttributes().getValue(manifestAttributeName);
-                if (embeddedDependencies != null) {
-                    return embeddedDependencies;
-                }
-                return "";
+                return Objects.requireNonNullElse(embeddedDependencies, "");
             }
         }
         return "";
     }
 
     private boolean extractPom(BundleExtractionResult result, Path path, Path bundlePath, JarFile jarFile,
-            JarEntry entry, String embeddedDependencies) throws IOException, XmlPullParserException {
+                               JarEntry entry, String embeddedDependencies) throws IOException, XmlPullParserException {
         MavenXpp3Reader reader = new MavenXpp3Reader();
         Model model = reader.read(jarFile.getInputStream(entry));
         String groupId = model.getGroupId();
@@ -203,12 +205,18 @@ public class BundleExtractor {
             result.setGroupId(groupId);
             result.setVersion(version);
 
+            if (!isIncludedGroupId(groupId)) {
+                log.info("Not extracting pom because the group id " + groupId + "is not included");
+                result.setExcluded(true);
+                return true;
+            }
+
             if (isExcludedGroupId(groupId)) {
-                log.info("Not extracting pom because the group id " + groupId + " is excluded");
+                log.info("Not extracting pom because the group id " + groupId + IS_EXCLUDED);
                 result.setExcluded(true);
                 return true;
             } else if (isExcludedArtifactId(artifactId)) {
-                log.info("Not extracting pom because the artifact id " + artifactId + " is excluded");
+                log.info("Not extracting pom because the artifact id " + artifactId + IS_EXCLUDED);
                 result.setExcluded(true);
                 return true;
             }
@@ -230,7 +238,7 @@ public class BundleExtractor {
             } else {
                 result.setHasSources(true);
             }
-            moveToOutputFolder(buildDirectory, groupId, artifactId, version);
+            moveToOutputFolder(buildDirectory, artifactId, version);
             FileUtils.deleteDirectory(buildDirectory.toFile());
             log.info("Extracted and renamed for " + groupId + ":" + artifactId);
 
@@ -243,24 +251,26 @@ public class BundleExtractor {
     }
 
     private void deleteDirectoryStream(Path path) throws IOException {
-        Files.walk(path).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+        try (Stream<Path> input = Files.walk(path)) {
+            input.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+        }
     }
 
-    private void moveToOutputFolder(Path buildDirectory, String groupId, String artifactId, String version)
+    private void moveToOutputFolder(Path buildDirectory, String artifactId, String version)
             throws IOException {
         Path outputPath = Paths.get(config.getBundleOutputDir());
         Path artifact = buildDirectory.resolve(artifactId + "-" + version + ".jar");
-        Path sources = buildDirectory.resolve(artifactId + "-" + version + "-sources.jar");
+        Path sources = buildDirectory.resolve(artifactId + "-" + version + SOURCES_JAR);
         Files.move(artifact, outputPath.resolve("artifacts").resolve(artifactId + "-" + version + ".jar"),
                 StandardCopyOption.REPLACE_EXISTING);
-        Files.move(sources, outputPath.resolve("sources").resolve(artifactId + "-" + version + "-sources.jar"),
+        Files.move(sources, outputPath.resolve(SOURCES).resolve(artifactId + "-" + version + SOURCES_JAR),
                 StandardCopyOption.REPLACE_EXISTING);
     }
 
-    public boolean downloadSources(Path directory, String groupId, String artifectId, String version) {
+    public boolean downloadSources(Path directory, String groupId, String artifactId, String version) {
         try {
-            String sourcesJarName = artifectId + "-" + version + "-sources.jar";
-            URL website = new URL("https://repo1.maven.org/maven2/" + groupId.replaceAll("\\.", "/") + "/" + artifectId
+            String sourcesJarName = artifactId + "-" + version + SOURCES_JAR;
+            URL website = new URL("https://repo1.maven.org/maven2/" + groupId.replace("\\.", "/") + "/" + artifactId
                     + "/" + version + "/" + sourcesJarName);
             HttpURLConnection huc = (HttpURLConnection) website.openConnection();
             huc.setRequestMethod("HEAD");
@@ -284,7 +294,7 @@ public class BundleExtractor {
     }
 
     private Path getVersionDirectory(Path path) throws IOException {
-        final Path[] result = { null };
+        final Path[] result = {null};
         try (Stream<Path> paths = Files.walk(path)) {
             paths.forEach(filePath -> {
                 if (filePath.toString().contains("version") && result[0] == null) {
@@ -299,12 +309,12 @@ public class BundleExtractor {
         long startTime = System.nanoTime();
         Map<String, Object> options = new HashMap<>();
         options.put(IFernflowerPreferences.LOG_LEVEL, IFernflowerLogger.Severity.ERROR.toString());
-        ConsoleDecompiler decompiler = new ConsoleDecompiler(directory.resolve("sources").toFile(), options);
+        ConsoleDecompiler decompiler = new ConsoleDecompiler(directory.resolve(SOURCES).toFile(), options);
         decompiler.addSpace(directory.resolve(artifactId + "-" + version + ".jar").toFile(), true);
         decompiler.decompileContext();
-        Files.move(directory.resolve("sources").resolve(artifactId + "-" + version + ".jar"),
-                directory.resolve(artifactId + "-" + version + "-sources.jar"));
-        deleteDirectory(directory.resolve("sources"));
+        Files.move(directory.resolve(SOURCES).resolve(artifactId + "-" + version + ".jar"),
+                directory.resolve(artifactId + "-" + version + SOURCES_JAR));
+        deleteDirectory(directory.resolve(SOURCES));
         long elapsedTime = System.nanoTime() - startTime;
         log.debug("Decompilation of " + artifactId + " took " + elapsedTime / 1_000_000_000 + " seconds");
     }

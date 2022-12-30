@@ -1,4 +1,4 @@
-package be.idoneus.felix.bundle.extractor;
+package be.orbinson.felix.bundle.extractor;
 
 import org.apache.commons.cli.*;
 

@@ -2,19 +2,19 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<groupId>be.idoneus.felix</groupId>
+	<groupId>be.orbinson.felix</groupId>
 	<artifactId>felix-bundle-extractor</artifactId>
 	<version>1.1.2-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
 	<name>Felix Bundle Extractor</name>
 	<description>Sorts and decompiles your Felix / OSGi bundles in to a searchable directory</description>
-	<url>https://github.com/Idoneus/felix-bundle-extractor</url>
+	<url>https://github.com/orbinson/felix-bundle-extractor</url>
 
 	<licenses>
 		<license>
 			<name>The MIT License</name>
-			<url>https://raw.githubusercontent.com/Idoneus/felix-bundle-extractor/develop/LICENSE</url>
+			<url>https://raw.githubusercontent.com/orbinson/felix-bundle-extractor/develop/LICENSE</url>
 			<distribution>repo</distribution>
 		</license>
 	</licenses>
@@ -24,14 +24,14 @@
 			<id>royteeuwen</id>
 			<name>Roy Teeuwen</name>
 			<email>roy@teeuwen.be</email>
-			<organization>Idoneus</organization>
+			<organization>Orbinson</organization>
 		</developer>
 	</developers>
 
 	<scm>
-		<connection>scm:git:git://github.com/Idoneus/felix-bundle-extractor.git</connection>
-		<developerConnection>scm:git:git://github.com/Idoneus/felix-bundle-extractor.git</developerConnection>
-		<url>https://github.com/Idoneus/felix-bundle-extractor</url>
+		<connection>scm:git:git://github.com/orbinson/felix-bundle-extractor.git</connection>
+		<developerConnection>scm:git:git://github.com/orbinson/felix-bundle-extractor.git</developerConnection>
+		<url>https://github.com/orbinson/felix-bundle-extractor</url>
 		<tag>HEAD</tag>
 	</scm>
 
@@ -102,7 +102,7 @@
 							<archive>
 								<manifest>
 									<mainClass>
-									be.idoneus.felix.bundle.extractor.FelixBundleExtractorApplication
+									be.orbinson.felix.bundle.extractor.FelixBundleExtractorApplication
 								</mainClass>
 								</manifest>
 							</archive>

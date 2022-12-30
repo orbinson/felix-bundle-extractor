@@ -44,7 +44,7 @@
 		<dependency>
 			<groupId>org.jboss.windup.decompiler</groupId>
 			<artifactId>decompiler-fernflower</artifactId>
-			<version>4.3.1.Final</version>
+			<version>6.1.0.Final</version>
 		</dependency>
 
 		<dependency>

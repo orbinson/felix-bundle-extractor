@@ -1,0 +1,49 @@
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin>
+    <id>be.orbinson.felix.bundle.extractor</id>
+    <name>Felix Bundle Extractor</name>
+    <vendor url="https://github.com/orbinson/felix-bundle-extractor">Orbinson</vendor>
+
+    <description><![CDATA[
+        <p>Attaches AEM / Apache Felix OSGi bundles as a searchable <b>External Library</b> in IntelliJ IDEA.</p>
+        <ul>
+            <li>Point to a local Felix launchpad bundles directory</li>
+            <li>All bundles are automatically indexed and available for <b>Go To Class</b>, <b>Find Usages</b>, and <b>Find in Files</b></li>
+            <li>Sources are fetched from Maven Central or decompiled on demand via IntelliJ's built-in decompiler</li>
+            <li>A dedicated <b>Felix Bundles</b> search scope is registered for targeted searches</li>
+        </ul>
+    ]]></description>
+
+    <!-- Requires IntelliJ IDEA with Java plugin -->
+    <depends>com.intellij.modules.lang</depends>
+    <depends>com.intellij.modules.java</depends>
+    <depends optional="true" config-file="be.orbinson.felix.bundle.extractor-withDecompiler.xml">
+        org.jetbrains.java.decompiler
+    </depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+
+        <!-- Project-level settings: bundles dir, exclude rules, decompilation behaviour -->
+        <projectService
+                serviceImplementation="be.orbinson.felix.bundle.intellij.FelixBundleSettings"/>
+
+        <!-- Exposes the Felix bundles directory as an External Library with binary + source roots -->
+        <additionalLibraryRootsProvider
+                implementation="be.orbinson.felix.bundle.intellij.FelixBundleLibraryProvider"/>
+
+        <!-- Settings page under Settings | Build, Execution, Deployment | Felix Bundle Extractor -->
+        <projectConfigurable
+                instance="be.orbinson.felix.bundle.intellij.FelixBundleSettingsConfigurable"
+                displayName="Felix Bundle Extractor"
+                parentId="build"/>
+
+        <!-- Editor notification banner: "Fetch sources" when a .class from a bundle is opened -->
+        <editorNotificationProvider
+                implementation="be.orbinson.felix.bundle.intellij.FelixBundleEditorNotification"/>
+
+        <!-- Adds "Felix Bundles" as a named search scope for Find in Files / Find Usages -->
+        <searchScopesProvider
+                implementation="be.orbinson.felix.bundle.intellij.FelixBundleSearchScopeProvider"/>
+
+    </extensions>
+</idea-plugin>

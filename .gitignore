@@ -1,12 +1,26 @@
-target/
+# Gradle build outputs
+build/
+.gradle/
+# IntelliJ Platform Gradle Plugin cache (IDE distributions, etc.)
+.intellijPlatform/
+
+# IntelliJ IDEA project files (generated)
 .idea/
 *.iml
+# Exception: keep felix bundle storage (it stores extracted JARs per project)
+# .idea/felix-bundles/ is intentionally NOT ignored — users may want to commit it
+# but typically it should be in .gitignore per their preference.
+# Uncomment to ignore extracted bundles:
+# .idea/felix-bundles/
 
+# macOS
+.DS_Store
+
+# Eclipse legacy files
 .classpath
 .factorypath
 .project
 .settings/
 
+# VS Code
 .vscode/
-
-.DS_Store

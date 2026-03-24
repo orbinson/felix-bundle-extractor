@@ -1,0 +1,5 @@
+<idea-plugin>
+    <!-- Required placeholder for optional dependency on the java-decompiler bundled plugin.
+         The presence of this file wires up the decompiler plugin's classloader so that
+         ConsoleDecompiler and IFernflowerLogger are visible to our plugin at runtime. -->
+</idea-plugin>

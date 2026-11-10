@@ -27,7 +27,7 @@
         <projectService
                 serviceImplementation="be.orbinson.felix.bundle.intellij.FelixBundleSettings"/>
 
-        <!-- Exposes the Felix bundles directory as an External Library with binary + source roots -->
+        <!-- Exposes original bundle JARs as an External Library; decompiled sources stay search-only -->
         <additionalLibraryRootsProvider
                 implementation="be.orbinson.felix.bundle.intellij.FelixBundleLibraryProvider"/>
 

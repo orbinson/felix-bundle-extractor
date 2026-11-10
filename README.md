@@ -73,6 +73,18 @@ Open **Settings → Build, Execution, Deployment → Felix Bundle Extractor**.
 
 Click **Extract / Refresh Bundles Now** to run extraction immediately after saving settings.
 
+## Known Limitation: Search and Debugging
+
+Generated source JARs are indexed separately so **Find in Files → Felix Bundles** can search
+their text. They are not attached as the source roots of the original bundle JARs: IntelliJ's
+built-in decompiler is used when opening bundle classes, which keeps debugger line numbers
+aligned with the class files.
+
+This means a class found in generated source text cannot currently be used directly to set a
+matching debugger breakpoint or navigate from that source result into a debug session. Supporting
+both generated-source search and accurate debugger navigation needs source-map integration and
+remains an open item.
+
 ## Building
 
 Requires Java 21. Ensure `JAVA_HOME` points to a Java 21 JDK, then:

@@ -8,19 +8,23 @@ import javax.swing.Icon
 /**
  * Represents the Felix OSGi bundles as an IntelliJ SyntheticLibrary (External Library).
  *
- * @param binaryRoots  VirtualFiles pointing to the bundle JARs in the artifacts/ directory.
- * @param sourceRoots  VirtualFiles pointing to the -sources JARs in the sources/ directory.
+ * @param binaryRoots  Original bundle JAR roots.
+ * @param sourceRoots  Generated source roots, kept separate from binaries for debugging.
  * @param name         Display name shown in the External Libraries tree node.
+ * @param showInExternalLibraries  Whether to show this library in the External Libraries tree.
  */
 class FelixBundleLibrary(
     private val binaryRoots: Collection<VirtualFile>,
     private val sourceRoots: Collection<VirtualFile>,
-    private val name: String = "Felix Bundles"
+    private val name: String = "Felix Bundles",
+    private val showInExternalLibraries: Boolean = true
 ) : SyntheticLibrary(), ItemPresentation {
 
     override fun getBinaryRoots(): Collection<VirtualFile> = binaryRoots
 
     override fun getSourceRoots(): Collection<VirtualFile> = sourceRoots
+
+    override fun isShowInExternalLibrariesNode(): Boolean = showInExternalLibraries
 
     override fun getPresentableText(): String = name
 

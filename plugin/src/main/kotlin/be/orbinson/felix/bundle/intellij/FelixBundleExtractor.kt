@@ -62,13 +62,15 @@ object FelixBundleExtractor {
 
                     // Notify IntelliJ to re-scan the library roots (must run on EDT)
                     ApplicationManager.getApplication().invokeLater {
-                        AdditionalLibraryRootsListener.fireAdditionalLibraryChanged(
-                            project,
-                            "Felix Bundles",
-                            emptyList(),
-                            emptyList(),
-                            FelixBundleLibraryProvider::class.java.name
-                        )
+                        ApplicationManager.getApplication().runWriteAction {
+                            AdditionalLibraryRootsListener.fireAdditionalLibraryChanged(
+                                project,
+                                "Felix Bundles",
+                                emptyList(),
+                                emptyList(),
+                                FelixBundleLibraryProvider::class.java.name
+                            )
+                        }
                         EditorNotifications.getInstance(project).updateAllNotifications()
                     }
                 } finally {

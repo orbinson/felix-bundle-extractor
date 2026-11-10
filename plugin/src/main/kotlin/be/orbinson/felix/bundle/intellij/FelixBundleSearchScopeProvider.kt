@@ -16,16 +16,7 @@ class FelixBundleSearchScopeProvider : SearchScopeProvider {
         val settings = FelixBundleSettings.getInstance(project)
         if (settings.bundlesDirectory.isBlank()) return emptyList()
 
-        val provider = FelixBundleLibraryProvider()
-        val libraries = provider.getAdditionalProjectLibraries(project)
-        if (libraries.isEmpty()) return emptyList()
-
-        val allRoots = mutableSetOf<VirtualFile>()
-        for (library in libraries) {
-            allRoots.addAll(library.binaryRoots)
-            allRoots.addAll(library.sourceRoots)
-        }
-
+        val allRoots = FelixBundleLibraryProvider().getSearchableRoots(project).toSet()
         if (allRoots.isEmpty()) return emptyList()
 
         val scope = object : GlobalSearchScope(project) {

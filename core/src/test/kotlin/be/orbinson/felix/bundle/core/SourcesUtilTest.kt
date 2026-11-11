@@ -49,6 +49,58 @@ class SourcesUtilTest {
     }
 
     @Test
+    fun `decompiled sources carry banner and original line markers`(@TempDir tempDir: Path) {
+        // Blank lines push the statements down so original and decompiled line numbers differ.
+        val source = "package sample;\n\n\n\n\n\npublic class Greeter {\n\n\n" +
+                "    public String greet(String name) {\n\n\n" +
+                "        String prefix = \"Hello \";\n\n\n" +
+                "        return prefix + name;\n" +
+                "    }\n}\n"
+        val srcFile = tempDir.resolve("src/sample/Greeter.java")
+        Files.createDirectories(srcFile.parent)
+        Files.writeString(srcFile, source)
+        val classesDir = Files.createDirectories(tempDir.resolve("classes"))
+        val compiler = javax.tools.ToolProvider.getSystemJavaCompiler()
+        assertEquals(0, compiler.run(null, null, null, "-g", "-d", classesDir.toString(), srcFile.toString()))
+
+        val bundleJar = tempDir.resolve("greeter.jar")
+        JarOutputStream(Files.newOutputStream(bundleJar), Manifest()).use { jos ->
+            jos.putNextEntry(JarEntry("sample/Greeter.class"))
+            jos.write(Files.readAllBytes(classesDir.resolve("sample/Greeter.class")))
+            jos.closeEntry()
+        }
+        val sourcesJar = tempDir.resolve("greeter-sources.jar").toFile()
+        assertTrue(SourcesUtil.decompile(bundleJar = bundleJar, sourcesJar = sourcesJar, artifactId = "greeter"))
+
+        val decompiled = java.util.jar.JarFile(sourcesJar).use { jar ->
+            jar.getInputStream(jar.getJarEntry("sample/Greeter.java")).bufferedReader().readText()
+        }
+        val mapping = DecompiledLineMapping.parse(decompiled.reader().buffered())
+        val originalToDecompiled = mapping.toList().chunked(2).associate { (orig, dec) -> orig to dec }
+        val lines = decompiled.lines()
+
+        // Original line 13 is `String prefix = "Hello ";`, line 16 is the return statement.
+        assertTrue(lines[originalToDecompiled.getValue(13) - 1].contains("\"Hello \""), decompiled)
+        assertTrue(lines[originalToDecompiled.getValue(16) - 1].contains("return"), decompiled)
+
+        // Realigned: statements sit on their original lines, so debuggers need no mapping.
+        assertEquals(13, originalToDecompiled.getValue(13), decompiled)
+        assertEquals(16, originalToDecompiled.getValue(16), decompiled)
+
+        // With realignment off the output stays compact, but the markers still map every statement.
+        val compactJar = tempDir.resolve("greeter-compact-sources.jar").toFile()
+        assertTrue(SourcesUtil.decompile(bundleJar = bundleJar, sourcesJar = compactJar, artifactId = "greeter", realign = false))
+        val compact = java.util.jar.JarFile(compactJar).use { jar ->
+            jar.getInputStream(jar.getJarEntry("sample/Greeter.java")).bufferedReader().readText()
+        }
+        val compactMapping = DecompiledLineMapping.parse(compact.reader().buffered()).toList().chunked(2)
+            .associate { (orig, dec) -> orig to dec }
+        assertTrue(compact.lines().size < decompiled.lines().size, compact)
+        assertTrue(compactMapping.getValue(13) < 13, compact)
+        assertTrue(compact.lines()[compactMapping.getValue(13) - 1].contains("\"Hello \""), compact)
+    }
+
+    @Test
     fun `decompile returns false and writes nothing when input jar is missing`(@TempDir tempDir: Path) {
         val missingJar = tempDir.resolve("does-not-exist.jar")
         val sourcesJar = tempDir.resolve("output-sources.jar").toFile()

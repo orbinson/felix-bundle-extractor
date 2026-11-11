@@ -27,7 +27,7 @@
         <projectService
                 serviceImplementation="be.orbinson.felix.bundle.intellij.FelixBundleSettings"/>
 
-        <!-- Exposes original bundle JARs as an External Library; decompiled sources stay search-only -->
+        <!-- Exposes bundle JARs as an External Library with their downloaded or decompiled sources attached -->
         <additionalLibraryRootsProvider
                 implementation="be.orbinson.felix.bundle.intellij.FelixBundleLibraryProvider"/>
 
@@ -45,5 +45,18 @@
         <searchScopesProvider
                 implementation="be.orbinson.felix.bundle.intellij.FelixBundleSearchScopeProvider"/>
 
+        <!-- Re-reads extracted JARs on project open, in case they changed while the IDE was closed -->
+        <postStartupActivity implementation="be.orbinson.felix.bundle.intellij.FelixBundleStartupActivity"/>
+
+        <!-- Installs decompiled line mappings before the debugger resolves stop and stack-frame lines -->
+        <debugger.positionManagerFactory
+                implementation="be.orbinson.felix.bundle.intellij.FelixBundlePositionManagerFactory"/>
+
     </extensions>
+
+    <projectListeners>
+        <!-- Maps decompiled source lines to bytecode lines so breakpoints and stepping land correctly -->
+        <listener class="be.orbinson.felix.bundle.intellij.FelixBundleLineMappingListener"
+                  topic="com.intellij.openapi.fileEditor.FileEditorManagerListener$Before"/>
+    </projectListeners>
 </idea-plugin>

@@ -41,76 +41,111 @@ object BundleExtractor {
         val sourcesDir = File(config.sourcesDirectory)
 
         val bundleDirs = bundlesDir.listFiles { f -> f.isDirectory } ?: return
-        listener.onStart(bundleDirs.size)
+        val bundles = orderSlowLast(scanBundles(bundleDirs, config, listener))
+        listener.onStart(bundles.size)
 
-        bundleDirs.forEachIndexed { index, bundleDir ->
+        bundles.forEachIndexed { index, bundle ->
             if (listener.isCancelled()) return
-            listener.onProgress(index, bundleDirs.size, bundleDir.name)
+            val label = if (bundle.slow) {
+                "${bundle.dir.name} (${bundle.info.artifactId}: large bundle, may take several minutes)"
+            } else {
+                bundle.dir.name
+            }
+            listener.onProgress(index, bundles.size, label)
 
             try {
-                extractBundle(bundleDir.toPath(), config, artifactsDir, sourcesDir, listener)
+                extractBundle(bundle, config, artifactsDir, sourcesDir, listener)
             } catch (e: Exception) {
-                listener.error("Could not extract bundle: ${bundleDir.absolutePath}", e)
+                listener.error("Could not extract bundle: ${bundle.dir.absolutePath}", e)
             }
         }
     }
 
     // ----- internal helpers -----
 
+    internal data class ScannedBundle(val dir: File, val jar: Path, val info: BundleInfo, val slow: Boolean)
+
+    private fun scanBundles(
+        bundleDirs: Array<File>,
+        config: ExtractionConfig,
+        listener: ExtractionListener
+    ): List<ScannedBundle> {
+        val slowPattern = config.slowArtifactIds.trim().takeIf { it.isNotEmpty() }?.toRegex()
+        return bundleDirs.mapNotNull { dir ->
+            try {
+                val jar = findBundleJar(dir.toPath()) ?: return@mapNotNull null
+                val info = JarFile(jar.toFile()).use { readBundleInfo(it, config, listener) } ?: return@mapNotNull null
+                if (info.excluded) return@mapNotNull null
+                ScannedBundle(dir, jar, info, slow = slowPattern?.matches(info.artifactId) == true)
+            } catch (e: Exception) {
+                listener.error("Could not read bundle: ${dir.absolutePath}", e)
+                null
+            }
+        }
+    }
+
+    /** Slow bundles go last so everything else is available before they finish. */
+    internal fun orderSlowLast(bundles: List<ScannedBundle>): List<ScannedBundle> =
+        bundles.sortedBy { it.slow }
+
+    internal fun timeoutFor(bundle: ScannedBundle, config: ExtractionConfig): Int {
+        val timeout = config.decompilationTimeoutSeconds
+        return if (bundle.slow && timeout > 0) maxOf(timeout, config.slowDecompilationTimeoutSeconds) else timeout
+    }
+
     /** Felix stores bundles as: <bundleId>/version<N>/bundle.jar */
     private fun extractBundle(
-        bundleDir: Path,
+        bundle: ScannedBundle,
         config: ExtractionConfig,
         artifactsDir: File,
         sourcesDir: File,
         listener: ExtractionListener
     ) {
-        val bundleJar = findBundleJar(bundleDir) ?: return
+        val bundleJar = bundle.jar
+        val info = bundle.info
+        val artifactJar = File(artifactsDir, "${info.artifactId}-${info.version}.jar")
+        val sourcesJar = File(sourcesDir, "${info.artifactId}-${info.version}$SOURCES_SUFFIX")
 
-        JarFile(bundleJar.toFile()).use { jar ->
-            val info = readBundleInfo(jar, config, listener) ?: return
-            if (info.excluded) return
+        if (!artifactJar.exists()) {
+            Files.copy(bundleJar, artifactJar.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            listener.info("Extracted artifact: ${artifactJar.name}")
+        }
 
-            val artifactJar = File(artifactsDir, "${info.artifactId}-${info.version}.jar")
-            val sourcesJar = File(sourcesDir, "${info.artifactId}-${info.version}$SOURCES_SUFFIX")
-
-            if (!artifactJar.exists()) {
-                Files.copy(bundleJar, artifactJar.toPath(), StandardCopyOption.REPLACE_EXISTING)
-                listener.info("Extracted artifact: ${artifactJar.name}")
+        if (!sourcesJar.exists()) {
+            val fetched = if (info.fromMaven) {
+                SourcesUtil.downloadSources(
+                    groupId = info.groupId,
+                    artifactId = info.artifactId,
+                    version = info.version,
+                    mavenRepositoryUrl = config.mavenRepositoryUrl,
+                    destination = sourcesJar,
+                    listener = listener
+                )
+            } else {
+                false
             }
 
-            if (!sourcesJar.exists()) {
-                val fetched = if (info.fromMaven) {
-                    SourcesUtil.downloadSources(
-                        groupId = info.groupId,
+            if (!fetched) {
+                val shouldDecompile = when (config.decompilationBehavior) {
+                    DecompilationBehavior.ALWAYS_DECOMPILE -> true
+                    DecompilationBehavior.NEVER_DECOMPILE -> false
+                    // ASK: in non-interactive contexts (CLI, background task) default to decompile
+                    DecompilationBehavior.ASK -> true
+                }
+                if (shouldDecompile) {
+                    if (bundle.slow) {
+                        listener.info("Decompiling ${info.artifactId}: large bundle, this can take several minutes")
+                    }
+                    SourcesUtil.decompile(
+                        bundleJar = bundleJar,
+                        sourcesJar = sourcesJar,
                         artifactId = info.artifactId,
-                        version = info.version,
-                        mavenRepositoryUrl = config.mavenRepositoryUrl,
-                        destination = sourcesJar,
+                        timeoutSeconds = timeoutFor(bundle, config),
+                        realign = config.realignDecompiledSources,
                         listener = listener
                     )
                 } else {
-                    false
-                }
-
-                if (!fetched) {
-                    val shouldDecompile = when (config.decompilationBehavior) {
-                        DecompilationBehavior.ALWAYS_DECOMPILE -> true
-                        DecompilationBehavior.NEVER_DECOMPILE -> false
-                        // ASK: in non-interactive contexts (CLI, background task) default to decompile
-                        DecompilationBehavior.ASK -> true
-                    }
-                    if (shouldDecompile) {
-                        SourcesUtil.decompile(
-                            bundleJar = bundleJar,
-                            sourcesJar = sourcesJar,
-                            artifactId = info.artifactId,
-                            timeoutSeconds = config.decompilationTimeoutSeconds,
-                            listener = listener
-                        )
-                    } else {
-                        listener.debug("Skipping decompilation for ${info.artifactId} (NEVER_DECOMPILE)")
-                    }
+                    listener.debug("Skipping decompilation for ${info.artifactId} (NEVER_DECOMPILE)")
                 }
             }
         }

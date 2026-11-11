@@ -25,6 +25,8 @@ Options:
   --exclude-non-maven          Skip bundles without an embedded pom.xml
   --no-decompile               Do not decompile bundles when Maven sources are unavailable
   --decompile-timeout <secs>   Per-bundle decompilation timeout in seconds (default: 60, 0 = no limit)
+  --no-realign                 Keep decompiled sources compact instead of aligning statements to their
+                               original line numbers (aligned sources debug correctly in any IDE)
   --verbose                    Print debug-level messages
   --help                       Show this help message
 """
@@ -53,6 +55,7 @@ fun main(args: Array<String>) {
     var excludeArtifacts = ""
     var excludeNonMaven = false
     var noDecompile = false
+    var noRealign = false
     var decompileTimeout = 60
     var verbose = false
 
@@ -65,6 +68,7 @@ fun main(args: Array<String>) {
             "--exclude-artifacts"   -> { excludeArtifacts = args.getOrElse(++i) { argError("--exclude-artifacts") } }
             "--exclude-non-maven"   -> excludeNonMaven = true
             "--no-decompile"        -> noDecompile = true
+            "--no-realign"          -> noRealign = true
             "--decompile-timeout"   -> { decompileTimeout = args.getOrElse(++i) { argError("--decompile-timeout") }.toIntOrNull() ?: argError("--decompile-timeout requires an integer") }
             "--verbose"             -> verbose = true
             "--help"                -> { println(USAGE.trim()); exitProcess(0) }
@@ -86,6 +90,7 @@ fun main(args: Array<String>) {
         mavenRepositoryUrl = mavenRepo,
         decompilationBehavior = if (noDecompile) DecompilationBehavior.NEVER_DECOMPILE else DecompilationBehavior.ALWAYS_DECOMPILE,
         decompilationTimeoutSeconds = decompileTimeout,
+        realignDecompiledSources = !noRealign,
     )
 
     val listener = object : ExtractionListener {

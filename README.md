@@ -40,6 +40,7 @@ java -jar cli/build/libs/cli-2.0.0-SNAPSHOT.jar <bundlesDir> <outputDir> [option
 #   --exclude-non-maven          Skip bundles without an embedded pom.xml
 #   --no-decompile               Do not decompile when Maven sources are unavailable
 #   --decompile-timeout <secs>   Per-bundle timeout in seconds (default: 60, 0 = no limit)
+#   --no-realign                 Keep decompiled sources compact (not aligned to original lines)
 #   --verbose                    Print debug-level messages
 ```
 
@@ -70,20 +71,37 @@ Open **Settings → Build, Execution, Deployment → Felix Bundle Extractor**.
 | Exclude artifactIds          | Regex — bundles whose artifactId matches are skipped                                           |
 | Exclude non-Maven artifacts  | Skip bundles that have no embedded `pom.xml`                                                   |
 | When sources cannot be found | `Ask before decompiling` / `Always decompile` / `Never decompile`                              |
+| Align decompiled sources     | On by default: statements sit on their original line numbers (see below); off = compact files  |
 
 Click **Extract / Refresh Bundles Now** to run extraction immediately after saving settings.
 
-## Known Limitation: Search and Debugging
+## Debugging Decompiled Sources
 
-Generated source JARs are indexed separately so **Find in Files → Felix Bundles** can search
-their text. They are not attached as the source roots of the original bundle JARs: IntelliJ's
-built-in decompiler is used when opening bundle classes, which keeps debugger line numbers
-aligned with the class files.
+Decompiled sources are attached to the bundle JARs, so they are searchable and debuggable.
+Decompiled code does not line up with the original line numbers, so two things happen:
 
-This means a class found in generated source text cannot currently be used directly to set a
-matching debugger breakpoint or navigate from that source result into a debug session. Supporting
-both generated-source search and accurate debugger navigation needs source-map integration and
-remains an open item.
+1. **Realignment.** Fernflower runs with the same options as IntelliJ's own decompiler, so each
+   statement gets a trailing `// <original line>` marker. The output is then realigned so that
+   statements land on their original line numbers: blank lines are inserted where the decompiled
+   code is too short, and where it is too long, blank lines are dropped and structural lines such
+   as `}` are joined onto the line above (only when that lands the statement exactly). Debuggers
+   (also outside IntelliJ, for the CLI output) then use the bytecode lines as-is, and IntelliJ's
+   "Source code does not match the bytecode" check passes. Statements the decompiler emits out of
+   source order (mostly inner classes and reordered `if`/`else` branches) cannot be realigned.
+   The cost is length: aligned files are about as long as the original source (on AEM bundles
+   ~1.8x the compact decompiled output), with blank lines where comments and Javadoc used to be.
+   Turn it off with **Align decompiled sources to original line numbers** (plugin) or
+   `--no-realign` (CLI); the plugin's line mapping below still keeps IntelliJ debugging correct.
+2. **Line mapping (plugin).** For those remaining statements, the plugin turns the markers into a
+   debugger line mapping, both when the file is opened and before the debugger resolves a stop,
+   stack frame or breakpoint in it. IntelliJ may still show the "does not match" warning for those
+   methods; the debugger lands on the right statement regardless.
+
+Sources decompiled by older plugin versions have no markers and are not realigned: delete
+`.idea/felix-bundles/sources/` and run **Extract / Refresh Bundles Now** again.
+
+To trace the line mapping, enable debug logging for `#be.orbinson.felix.bundle.intellij` in
+**Help → Diagnostic Tools → Debug Log Settings**; messages go to `idea.log`.
 
 ## Building
 

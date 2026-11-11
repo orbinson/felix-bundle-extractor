@@ -9,7 +9,7 @@ import javax.swing.Icon
  * Represents the Felix OSGi bundles as an IntelliJ SyntheticLibrary (External Library).
  *
  * @param binaryRoots  Original bundle JAR roots.
- * @param sourceRoots  Generated source roots, kept separate from binaries for debugging.
+ * @param sourceRoots  Downloaded or decompiled source JAR roots.
  * @param name         Display name shown in the External Libraries tree node.
  * @param showInExternalLibraries  Whether to show this library in the External Libraries tree.
  */

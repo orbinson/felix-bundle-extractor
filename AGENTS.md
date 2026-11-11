@@ -11,7 +11,7 @@ bundles from the command line.
 - **Package (plugin):** `be.orbinson.felix.bundle.intellij`
 - **Language:** Kotlin 2.1.0
 - **Target IDE:** IntelliJ IDEA Community/Ultimate 2024.2+ (`sinceBuild = "242"`)
-- **Build system:** Gradle 8.11.1 with IntelliJ Platform Gradle Plugin 2.x
+- **Build system:** Gradle 8.14.3 with IntelliJ Platform Gradle Plugin 2.10.5 (2.11+ needs Gradle 9)
 - **License:** MIT
 
 ## Module Structure
@@ -19,8 +19,9 @@ bundles from the command line.
 ```text
 core/    Pure Kotlin/JVM — no IntelliJ API dependencies
            ExtractionConfig, ExtractionListener, DecompilationBehavior
-           BundleExtractor   — scan/copy logic
+           BundleExtractor   — scan/copy logic (slow bundles such as aem-precompiled-scripts last)
            SourcesUtil       — Maven download + Fernflower/Vineflower decompilation
+           DecompiledLineMapping — parses `// <line>` markers, realigns decompiled sources
          Depends on: org.apache.maven:maven-model, org.vineflower:vineflower
 
 cli/     Standalone fat JAR entry point (java -jar)
@@ -36,6 +37,9 @@ plugin/  IntelliJ Platform plugin — bridges IntelliJ APIs with core logic
            FelixBundleSettingsConfigurable — Settings UI
            FelixBundleEditorNotification   — EditorNotificationProvider
            FelixBundleSearchScopeProvider  — SearchScopesProvider
+           FelixBundleLineMapping          — installs LineNumbersMapping on decompiled sources
+           FelixBundleLineMappingListener  — FileEditorManagerListener.Before (file opened)
+           FelixBundlePositionManagerFactory — debugger hook (stops, frames, breakpoints)
          Depends on: :core (vineflower excluded — bundled java-decompiler.jar takes over)
 ```
 
@@ -57,6 +61,10 @@ Storage layout at runtime inside the IntelliJ project:
 
 # Verify plugin project configuration
 ./gradlew :plugin:verifyPluginProjectConfiguration
+
+# Sandbox IDEs with the plugin installed
+./gradlew :plugin:runIde        # IntelliJ IC 2024.2 (compile target)
+./gradlew :plugin:runLocalIde   # local install, default /Applications/IntelliJ IDEA.app (-PlocalIdePath=...)
 ```
 
 **Java home:** Gradle tasks require Java 21. Ensure `JAVA_HOME` points to a Java 21 JDK before running any build tasks.
@@ -127,6 +135,30 @@ decompiler.addSource(bundleJar.toFile())
 decompiler.decompileContext()
 ```
 
+### Debuggable decompiled sources
+
+Decompiled code does not line up with the bytecode `LineNumberTable`, so breakpoints and stepping
+land on the wrong lines. Three layers fix this:
+
+1. **Markers.** `SourcesUtil.DECOMPILER_OPTIONS` mirrors IntelliJ's `IdeaDecompiler` options;
+   `bsm=1` + `__dump_original_lines__=1` append `// <original line>` to every statement, and the
+   `ban` banner (`DECOMPILED_BANNER`) marks files as ours. These options only take effect through the
+   constructor API: the `ConsoleDecompiler` CLI only parses 3-letter `-xxx=` options.
+2. **Realignment** (`DecompiledLineMapping.realign`). Pads blank lines, or drops blank lines and joins
+   structural lines (only when that lands the statement exactly), so statements sit on their original
+   line. Needed because IntelliJ's `SourceCodeChecker` ("Source code does not match the bytecode")
+   only applies line mappings to `PsiCompiledFile`s; for attached sources it compares raw bytecode
+   lines with the method's line range. Out-of-order code (inner classes, reordered branches) can't be
+   realigned. Measured on all 653 AEM bundles: 67% of bytecode lines aligned, 18% of methods warn.
+   Configurable (`realignDecompiledSources`, default on; CLI `--no-realign`): aligned files are
+   ~1.8x longer than compact output.
+3. **Line mapping (plugin).** `LineNumbersMapping.LINE_NUMBERS_MAPPING_KEY` on the source
+   `VirtualFile`, built from the markers. The debugger reads it eagerly (stop positions, frames, and
+   `CompoundPositionManager.locationsOfLine` before asking any position manager), so it is installed
+   both on file open and from `FelixBundlePositionManager` (`getSourcePosition`, `getAllClasses`,
+   `createPrepareRequest`), which then throws `NoDataException` to defer to the built-in manager.
+   Custom position managers are prepended, so they run first.
+
 ### Concurrent extraction guard
 
 `FelixBundleExtractor` is an `object` (singleton). Multiple button clicks launch
@@ -150,6 +182,12 @@ tasks to `JAVA_HOME` in `plugin/build.gradle.kts`:
 Do NOT use `testFramework(TestFrameworkType.Platform)` in `plugin/build.gradle.kts` — it
 triggers a download of `test-framework-*.jar` from the geo-blocked JetBrains CDN
 (403 Forbidden). Plain JUnit 5 tests need only `junit-jupiter-*` on the test classpath.
+
+### No synchronous VFS refresh in the library provider
+
+`getAdditionalProjectLibraries` runs under a read lock; `refreshAndFindFileByIoFile` there logs
+"Do not perform a synchronous refresh under read lock". The provider uses `findFileByIoFile`, and
+`FelixBundleExtractor` refreshes the storage dirs synchronously from its background task first.
 
 ### instrumentCode disabled
 

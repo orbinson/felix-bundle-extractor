@@ -20,6 +20,12 @@ package be.orbinson.felix.bundle.core
  * @param mavenRepositoryUrl   Base URL of the Maven repository used for downloading sources.
  * @param decompilationBehavior  What to do when Maven sources are unavailable.
  * @param decompilationTimeoutSeconds  Per-bundle Fernflower timeout; 0 means no limit.
+ * @param slowArtifactIds      Regex; bundles known to take minutes to decompile (e.g. AEM's precompiled
+ *                             scripts). They are processed last, with [slowDecompilationTimeoutSeconds].
+ * @param slowDecompilationTimeoutSeconds  Minimum timeout for [slowArtifactIds] bundles, unless
+ *                             [decompilationTimeoutSeconds] is 0 (no limit).
+ * @param realignDecompiledSources  Move decompiled statements onto their original line numbers
+ *                             (longer files, but debuggers can use the bytecode lines as-is).
  */
 data class ExtractionConfig(
     val bundlesDirectory: String,
@@ -32,4 +38,7 @@ data class ExtractionConfig(
     val mavenRepositoryUrl: String = "https://repo1.maven.org/maven2",
     val decompilationBehavior: DecompilationBehavior = DecompilationBehavior.ASK,
     val decompilationTimeoutSeconds: Int = 60,
+    val slowArtifactIds: String = "aem-precompiled-scripts",
+    val slowDecompilationTimeoutSeconds: Int = 900,
+    val realignDecompiledSources: Boolean = true,
 )

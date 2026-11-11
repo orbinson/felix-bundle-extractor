@@ -12,8 +12,8 @@ import java.io.File
  * Provides the Felix Bundles as an IntelliJ SyntheticLibrary (External Library).
  *
  * IntelliJ calls this at project load and whenever the library is invalidated.
- * Original bundles and generated sources are separate libraries so the debugger
- * uses the IDE decompiler for bundle classes while generated Java remains indexed.
+ * Sources are attached to the bundle JARs; decompiled sources stay debuggable through
+ * [FelixBundleLineMappingListener].
  */
 class FelixBundleLibraryProvider : AdditionalLibraryRootsProvider() {
 
@@ -25,12 +25,8 @@ class FelixBundleLibraryProvider : AdditionalLibraryRootsProvider() {
         val binaryRoots = collectJarRoots(FelixBundleStorageService.getArtifactsDir(project))
         val sourceRoots = collectJarRoots(FelixBundleStorageService.getSourcesDir(project))
 
-        return buildList {
-            if (binaryRoots.isNotEmpty()) add(FelixBundleLibrary(binaryRoots, emptyList()))
-            if (sourceRoots.isNotEmpty()) {
-                add(FelixBundleLibrary(emptyList(), sourceRoots, "Felix Bundle Decompiled Sources", false))
-            }
-        }
+        if (binaryRoots.isEmpty() && sourceRoots.isEmpty()) return emptyList()
+        return listOf(FelixBundleLibrary(binaryRoots, sourceRoots))
     }
 
     fun getSearchableRoots(project: Project): Collection<VirtualFile> =
@@ -52,8 +48,9 @@ class FelixBundleLibraryProvider : AdditionalLibraryRootsProvider() {
             ?: emptyList()
     }
 
+    // Called under a read lock, so no synchronous refresh here; FelixBundleExtractor refreshes the VFS first.
     private fun toJarRoot(jarFile: File): VirtualFile? {
-        val localFile = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(jarFile) ?: return null
+        val localFile = LocalFileSystem.getInstance().findFileByIoFile(jarFile) ?: return null
         return JarFileSystem.getInstance().getJarRootForLocalFile(localFile)
     }
 }

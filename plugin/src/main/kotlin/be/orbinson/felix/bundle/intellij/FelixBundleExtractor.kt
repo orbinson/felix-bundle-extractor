@@ -4,16 +4,18 @@ import be.orbinson.felix.bundle.core.BundleExtractor
 import be.orbinson.felix.bundle.core.ExtractionConfig
 import be.orbinson.felix.bundle.core.ExtractionListener
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.diagnostic.debug
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.AdditionalLibraryRootsListener
-import com.intellij.openapi.diagnostic.debug
 import com.intellij.openapi.vfs.JarFileSystem
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtil
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.EditorNotifications
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -49,9 +51,10 @@ object FelixBundleExtractor {
                 try {
                     val config = buildConfig(project)
                     val listener = indicatorListener(indicator)
+                    val rootsBefore = currentRoots(project)
                     BundleExtractor.extractAll(config, listener)
                     refreshStorage(project)
-                    notifyLibraryChanged(project)
+                    notifyLibraryChanged(project, rootsBefore)
                 } finally {
                     running.set(false)
                 }
@@ -87,16 +90,26 @@ object FelixBundleExtractor {
         LOG.debug { "Refreshed ${dirs.size} storage dirs and ${jarRoots.size} JAR roots" }
     }
 
-    /** Makes IntelliJ re-query [FelixBundleLibraryProvider]. */
-    fun notifyLibraryChanged(project: Project) {
+    fun currentRoots(project: Project): Collection<VirtualFile> =
+        ReadAction.compute<Collection<VirtualFile>, RuntimeException> {
+            FelixBundleLibraryProvider().getSearchableRoots(project)
+        }
+
+    /**
+     * Makes IntelliJ re-query [FelixBundleLibraryProvider]. IntelliJ only indexes the roots that are
+     * new compared to [oldRoots], so pass the roots from before the change (empty = index all).
+     */
+    fun notifyLibraryChanged(project: Project, oldRoots: Collection<VirtualFile>) {
         ApplicationManager.getApplication().invokeLater {
             if (project.isDisposed) return@invokeLater
+            val newRoots = FelixBundleLibraryProvider().getSearchableRoots(project)
+            LOG.debug { "Library roots changed: ${oldRoots.size} -> ${newRoots.size}" }
             ApplicationManager.getApplication().runWriteAction {
                 AdditionalLibraryRootsListener.fireAdditionalLibraryChanged(
                     project,
                     "Felix Bundles",
-                    emptyList(),
-                    emptyList(),
+                    oldRoots,
+                    newRoots,
                     FelixBundleLibraryProvider::class.java.name
                 )
             }

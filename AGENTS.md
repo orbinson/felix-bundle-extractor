@@ -216,6 +216,14 @@ static void fireAdditionalLibraryChanged(Project, String, Collection<VirtualFile
                                          Collection<VirtualFile>, String)
 ```
 
+Pass the real old and new roots: IntelliJ only indexes roots that are in `newRoots` but not in
+`oldRoots`. With two empty lists nothing gets indexed, so JARs created after project open stay
+invisible (Go to Class finds nothing, the debugger steps over the classes). `FelixBundleExtractor`
+captures the roots before extraction; the startup activity passes empty old roots to index all.
+
+Also refresh the JAR roots themselves, not only the storage dirs (`FelixBundleExtractor.refreshStorage`):
+JAR contents are cached separately, and a JAR replaced or missing when last read keeps stale entries.
+
 ## Code Style Guidelines
 
 ### Language

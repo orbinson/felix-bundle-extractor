@@ -15,6 +15,7 @@ class FelixBundleStartupActivity : ProjectActivity {
         if (FelixBundleSettings.getInstance(project).bundlesDirectory.isBlank()) return
         if (!FelixBundleStorageService.getStorageRoot(project).isDirectory) return
         withContext(Dispatchers.IO) { FelixBundleExtractor.refreshStorage(project) }
-        FelixBundleExtractor.notifyLibraryChanged(project)
+        // Empty old roots: (re)index everything, in case JARs appeared or changed while the IDE was closed.
+        FelixBundleExtractor.notifyLibraryChanged(project, emptyList())
     }
 }

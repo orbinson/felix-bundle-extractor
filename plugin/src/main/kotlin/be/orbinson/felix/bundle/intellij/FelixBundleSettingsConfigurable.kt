@@ -21,6 +21,7 @@ class FelixBundleSettingsConfigurable(private val project: Project) : Configurab
     private var excludeNonMavenCheckbox: JBCheckBox? = null
     private var decompilationBehaviorCombo: JComboBox<DecompilationBehavior>? = null
     private var decompilationTimeoutSpinner: JSpinner? = null
+    private var realignCheckbox: JBCheckBox? = null
     private var extractButton: JButton? = null
 
     override fun getDisplayName(): String = "Felix Bundle Extractor"
@@ -64,6 +65,12 @@ class FelixBundleSettingsConfigurable(private val project: Project) : Configurab
         val timeoutSpinner = JSpinner(SpinnerNumberModel(60, 0, 3600, 10))
         decompilationTimeoutSpinner = timeoutSpinner
 
+        val realign = JBCheckBox("Align decompiled sources to original line numbers (recommended for debugging)")
+        realign.toolTipText = "Adds blank lines so statements sit on their original lines. Files get longer, but " +
+            "breakpoints and stepping match the bytecode and IntelliJ's 'source does not match' warning mostly " +
+            "disappears. Applies to newly decompiled bundles; delete .idea/felix-bundles/sources to redo existing ones."
+        realignCheckbox = realign
+
         val button = JButton("Extract / Refresh Bundles Now")
         button.addActionListener {
             applySettings()
@@ -82,6 +89,7 @@ class FelixBundleSettingsConfigurable(private val project: Project) : Configurab
             .addSeparator()
             .addLabeledComponent(JBLabel("When bundle sources cannot be found:"), combo, 1, false)
             .addLabeledComponent(JBLabel("Decompilation timeout (seconds, 0 = no limit):"), timeoutSpinner, 1, false)
+            .addComponent(realign)
             .addSeparator()
             .addComponent(button)
             .addComponentFillVertically(JPanel(), 0)
@@ -97,7 +105,8 @@ class FelixBundleSettingsConfigurable(private val project: Project) : Configurab
                 excludeArtifactIdsField?.text != settings.excludeArtifactIds ||
                 excludeNonMavenCheckbox?.isSelected != settings.excludeNonMavenArtifacts ||
                 decompilationBehaviorCombo?.selectedItem != settings.decompilationBehavior ||
-                (decompilationTimeoutSpinner?.value as? Int) != settings.decompilationTimeoutSeconds
+                (decompilationTimeoutSpinner?.value as? Int) != settings.decompilationTimeoutSeconds ||
+                realignCheckbox?.isSelected != settings.realignDecompiledSources
     }
 
     override fun apply() { applySettings() }
@@ -113,6 +122,7 @@ class FelixBundleSettingsConfigurable(private val project: Project) : Configurab
         settings.decompilationBehavior =
             (decompilationBehaviorCombo?.selectedItem as? DecompilationBehavior) ?: DecompilationBehavior.ASK
         settings.decompilationTimeoutSeconds = (decompilationTimeoutSpinner?.value as? Int) ?: 60
+        settings.realignDecompiledSources = realignCheckbox?.isSelected ?: true
     }
 
     override fun reset() {
@@ -125,5 +135,6 @@ class FelixBundleSettingsConfigurable(private val project: Project) : Configurab
         excludeNonMavenCheckbox?.isSelected = settings.excludeNonMavenArtifacts
         decompilationBehaviorCombo?.selectedItem = settings.decompilationBehavior
         decompilationTimeoutSpinner?.value = settings.decompilationTimeoutSeconds
+        realignCheckbox?.isSelected = settings.realignDecompiledSources
     }
 }

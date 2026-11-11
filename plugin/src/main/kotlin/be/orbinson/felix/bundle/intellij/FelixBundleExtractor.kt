@@ -4,13 +4,18 @@ import be.orbinson.felix.bundle.core.BundleExtractor
 import be.orbinson.felix.bundle.core.ExtractionConfig
 import be.orbinson.felix.bundle.core.ExtractionListener
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.diagnostic.debug
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.AdditionalLibraryRootsListener
+import com.intellij.openapi.vfs.JarFileSystem
+import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtil
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.EditorNotifications
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -46,33 +51,10 @@ object FelixBundleExtractor {
                 try {
                     val config = buildConfig(project)
                     val listener = indicatorListener(indicator)
+                    val rootsBefore = currentRoots(project)
                     BundleExtractor.extractAll(config, listener)
-
-                    // Refresh the VFS so new files are visible immediately.
-                    val artifactsVfs = VfsUtil.findFileByIoFile(
-                        FelixBundleStorageService.getArtifactsDir(project), false
-                    )
-                    val sourcesVfs = VfsUtil.findFileByIoFile(
-                        FelixBundleStorageService.getSourcesDir(project), false
-                    )
-                    val roots = listOfNotNull(artifactsVfs, sourcesVfs)
-                    if (roots.isNotEmpty()) {
-                        VfsUtil.markDirtyAndRefresh(true, true, true, *roots.toTypedArray())
-                    }
-
-                    // Notify IntelliJ to re-scan the library roots (must run on EDT)
-                    ApplicationManager.getApplication().invokeLater {
-                        ApplicationManager.getApplication().runWriteAction {
-                            AdditionalLibraryRootsListener.fireAdditionalLibraryChanged(
-                                project,
-                                "Felix Bundles",
-                                emptyList(),
-                                emptyList(),
-                                FelixBundleLibraryProvider::class.java.name
-                            )
-                        }
-                        EditorNotifications.getInstance(project).updateAllNotifications()
-                    }
+                    refreshStorage(project)
+                    notifyLibraryChanged(project, rootsBefore)
                 } finally {
                     running.set(false)
                 }
@@ -82,6 +64,57 @@ object FelixBundleExtractor {
                 running.set(false)
             }
         })
+    }
+
+    /**
+     * Synchronously refreshes the storage dirs and the contents of every JAR in them. Call from a
+     * background thread without a read lock; the library provider then finds the JARs without
+     * refreshing under its read lock.
+     */
+    fun refreshStorage(project: Project) {
+        val dirs = listOf(
+            FelixBundleStorageService.getArtifactsDir(project),
+            FelixBundleStorageService.getSourcesDir(project),
+        ).mapNotNull { LocalFileSystem.getInstance().refreshAndFindFileByIoFile(it) }
+        if (dirs.isEmpty()) return
+        VfsUtil.markDirtyAndRefresh(false, true, true, *dirs.toTypedArray())
+
+        // JAR contents are cached separately from the JAR file itself. A JAR that was replaced (or
+        // missing when last read) otherwise keeps stale or empty entries, so its classes never get indexed.
+        val jarRoots = dirs.flatMap { it.children.asList() }
+            .filter { it.extension == "jar" }
+            .mapNotNull { JarFileSystem.getInstance().getJarRootForLocalFile(it) }
+        if (jarRoots.isNotEmpty()) {
+            VfsUtil.markDirtyAndRefresh(false, true, true, *jarRoots.toTypedArray())
+        }
+        LOG.debug { "Refreshed ${dirs.size} storage dirs and ${jarRoots.size} JAR roots" }
+    }
+
+    fun currentRoots(project: Project): Collection<VirtualFile> =
+        ReadAction.compute<Collection<VirtualFile>, RuntimeException> {
+            FelixBundleLibraryProvider().getSearchableRoots(project)
+        }
+
+    /**
+     * Makes IntelliJ re-query [FelixBundleLibraryProvider]. IntelliJ only indexes the roots that are
+     * new compared to [oldRoots], so pass the roots from before the change (empty = index all).
+     */
+    fun notifyLibraryChanged(project: Project, oldRoots: Collection<VirtualFile>) {
+        ApplicationManager.getApplication().invokeLater {
+            if (project.isDisposed) return@invokeLater
+            val newRoots = FelixBundleLibraryProvider().getSearchableRoots(project)
+            LOG.debug { "Library roots changed: ${oldRoots.size} -> ${newRoots.size}" }
+            ApplicationManager.getApplication().runWriteAction {
+                AdditionalLibraryRootsListener.fireAdditionalLibraryChanged(
+                    project,
+                    "Felix Bundles",
+                    oldRoots,
+                    newRoots,
+                    FelixBundleLibraryProvider::class.java.name
+                )
+            }
+            EditorNotifications.getInstance(project).updateAllNotifications()
+        }
     }
 
     // ----- helpers -----
@@ -99,6 +132,7 @@ object FelixBundleExtractor {
             mavenRepositoryUrl = settings.mavenRepositoryUrl,
             decompilationBehavior = settings.decompilationBehavior,
             decompilationTimeoutSeconds = settings.decompilationTimeoutSeconds,
+            realignDecompiledSources = settings.realignDecompiledSources,
         )
     }
 

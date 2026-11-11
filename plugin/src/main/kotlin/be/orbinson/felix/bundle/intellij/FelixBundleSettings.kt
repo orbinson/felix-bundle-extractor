@@ -47,6 +47,9 @@ class FelixBundleSettings : PersistentStateComponent<FelixBundleSettings> {
     /** Decompilation behaviour when sources cannot be downloaded from the Maven repository. */
     var decompilationBehavior: DecompilationBehavior = DecompilationBehavior.ASK
 
+    /** Pad decompiled sources so statements sit on their original line numbers (see README). */
+    var realignDecompiledSources: Boolean = true
+
     override fun getState(): FelixBundleSettings = this
 
     override fun loadState(state: FelixBundleSettings) {

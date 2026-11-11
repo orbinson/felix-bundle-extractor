@@ -24,3 +24,6 @@ build/
 
 # VS Code
 .vscode/
+
+# Legacy Maven build output
+target/

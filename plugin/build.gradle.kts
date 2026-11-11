@@ -52,6 +52,18 @@ intellijPlatform {
     }
 }
 
+// Sandbox on a locally installed IDE (default: /Applications/IntelliJ IDEA.app), e.g. to test against
+// a newer platform than the 2024.2 compile target. Override with -PlocalIdePath=/path/to/IDE.app
+intellijPlatformTesting {
+    runIde {
+        register("runLocalIde") {
+            localPath = file(
+                providers.gradleProperty("localIdePath").getOrElse("/Applications/IntelliJ IDEA.app")
+            )
+        }
+    }
+}
+
 // Force all tasks that spawn a JVM subprocess to use JAVA_HOME,
 // not the JBR bundled with the downloaded IntelliJ IDE.
 tasks {

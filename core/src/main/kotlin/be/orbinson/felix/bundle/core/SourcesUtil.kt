@@ -13,8 +13,33 @@ import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
 
 const val SOURCES_SUFFIX = "-sources.jar"
+
+/** First line of every decompiled file; identifies sources whose lines carry `// <original line>` markers. */
+const val DECOMPILED_BANNER = "// Decompiled by Felix Bundle Extractor (Fernflower), line markers map to bytecode"
+
+/**
+ * Same options as IntelliJ's own `IdeaDecompiler`. `bsm` + `__dump_original_lines__` append the original
+ * line numbers as a trailing `// 12 13` comment, which the plugin turns into a debugger line mapping.
+ */
+internal val DECOMPILER_OPTIONS: Map<String, Any> = mapOf(
+    "hdc" to "0",
+    "dgs" to "1",
+    "rsy" to "1",
+    "rbr" to "1",
+    "nls" to "1",
+    "mpm" to 60,
+    "ind" to "    ",
+    "iib" to "1",
+    "vac" to "1",
+    "bsm" to "1",
+    "__dump_original_lines__" to "1",
+    "ban" to "$DECOMPILED_BANNER\n",
+)
 
 /**
  * Utilities for acquiring sources for a bundle JAR:
@@ -68,6 +93,7 @@ object SourcesUtil {
         sourcesJar: File,
         artifactId: String,
         timeoutSeconds: Int = 60,
+        realign: Boolean = true,
         listener: ExtractionListener = object : ExtractionListener {}
     ): Boolean {
         listener.debug("Decompiling $artifactId...")
@@ -85,13 +111,18 @@ object SourcesUtil {
                 }
                 fernflowerLogger.setSeverity(IFernflowerLogger.Severity.ERROR)
 
-                val decompiler = FelixDecompiler(tempDir.toFile(), emptyMap<String, Any>(), fernflowerLogger)
+                val decompiler = FelixDecompiler(tempDir.toFile(), DECOMPILER_OPTIONS, fernflowerLogger)
                 decompiler.addSource(bundleJar.toFile())
                 decompiler.decompileContext()
 
                 val decompiled = tempDir.resolve(bundleJar.fileName).toFile()
                 if (decompiled.exists()) {
-                    Files.copy(decompiled.toPath(), sourcesJar.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                    val output = if (realign) {
+                        tempDir.resolve("realigned.jar").toFile().also { realignSources(decompiled, it) }
+                    } else {
+                        decompiled
+                    }
+                    Files.move(output.toPath(), sourcesJar.toPath(), StandardCopyOption.REPLACE_EXISTING)
                     true
                 } else {
                     false
@@ -126,6 +157,27 @@ object SourcesUtil {
         } finally {
             executor.shutdownNow()
             tempDir.toFile().deleteRecursively()
+        }
+    }
+
+    /** Copies [input] to [output], applying [DecompiledLineMapping.realign] to every `.java` entry. */
+    internal fun realignSources(input: File, output: File) {
+        ZipFile(input).use { zip ->
+            ZipOutputStream(output.outputStream().buffered()).use { out ->
+                for (entry in zip.entries()) {
+                    out.putNextEntry(ZipEntry(entry.name))
+                    if (!entry.isDirectory) {
+                        val bytes = zip.getInputStream(entry).use { it.readBytes() }
+                        if (entry.name.endsWith(".java")) {
+                            val lines = bytes.toString(Charsets.UTF_8).split("\n")
+                            out.write(DecompiledLineMapping.realign(lines).joinToString("\n").toByteArray(Charsets.UTF_8))
+                        } else {
+                            out.write(bytes)
+                        }
+                    }
+                    out.closeEntry()
+                }
+            }
         }
     }
 

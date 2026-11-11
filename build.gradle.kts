@@ -1,6 +1,6 @@
 plugins {
     id("org.jetbrains.kotlin.jvm") version "2.1.0" apply false
-    id("org.jetbrains.intellij.platform") version "2.3.0" apply false
+    id("org.jetbrains.intellij.platform") version "2.10.5" apply false
 }
 
 subprojects {
